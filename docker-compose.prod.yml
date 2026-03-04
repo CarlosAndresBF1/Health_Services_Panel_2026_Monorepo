@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# HealthPanel - Docker Compose (Development)
-# Hot reload enabled for api and panel services.
-# Usage: docker compose up -d
+# HealthPanel - Docker Compose (Production)
+# Uses production Dockerfiles. No source-code volume mounts.
+# Usage: docker compose -f docker-compose.prod.yml up -d
 # ─────────────────────────────────────────────────────────────────────────────
 name: healthpanel
 
@@ -11,7 +11,7 @@ services:
   postgres:
     image: postgres:17-alpine
     container_name: healthpanel_postgres
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -25,7 +25,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
     networks:
       - healthpanel
 
@@ -33,19 +41,16 @@ services:
   api:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile.dev
+      dockerfile: apps/api/Dockerfile
     container_name: healthpanel_api
-    restart: unless-stopped
+    restart: always
     ports:
       - "${PORT_API:-3045}:3000"
     volumes:
-      # Hot reload: mount source directories only (node_modules stay inside container)
-      - ./apps/api/src:/app/apps/api/src
-      - ./packages/shared/src:/app/packages/shared/src
       - screenshots:/app/screenshots
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      # Database - always point to internal service, not host port
+      NODE_ENV: production
+      # Database - always point to internal service name
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME}
@@ -67,6 +72,14 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
     networks:
       - healthpanel
 
@@ -74,21 +87,24 @@ services:
   panel:
     build:
       context: .
-      dockerfile: apps/panel/Dockerfile.dev
+      dockerfile: apps/panel/Dockerfile
     container_name: healthpanel_panel
-    restart: unless-stopped
+    restart: always
     ports:
       - "${PORT_PANEL:-3044}:3000"
-    volumes:
-      # Hot reload: mount source directories only
-      - ./apps/panel/src:/app/apps/panel/src
-      - ./packages/shared/src:/app/packages/shared/src
     environment:
-      # URLs are resolved from the host browser, so use host-mapped ports
-      NEXT_PUBLIC_API_URL: http://localhost:${PORT_API:-3045}
-      NEXT_PUBLIC_WS_URL: ws://localhost:${PORT_API:-3045}
+      NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:3045}
+      NEXT_PUBLIC_WS_URL: ${WS_URL:-ws://localhost:3045}
     depends_on:
       - api
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
     networks:
       - healthpanel
 
