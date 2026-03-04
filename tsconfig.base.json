@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    /* ─── Language & Environment ─── */
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "useDefineForClassFields": true,
+
+    /* ─── Modules ─── */
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "resolveJsonModule": true,
+
+    /* ─── Emit ─── */
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "removeComments": false,
+
+    /* ─── Interop ─── */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* ─── Strict Mode ─── */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
+    "alwaysStrict": true,
+
+    /* ─── Additional Checks ─── */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+
+    /* ─── Decorators (needed for NestJS) ─── */
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    /* ─── Paths ─── */
+    "baseUrl": ".",
+    "paths": {
+      "@healthpanel/shared": ["packages/shared/src/index.ts"],
+      "@healthpanel/shared/*": ["packages/shared/src/*"]
+    },
+
+    /* ─── Skip ─── */
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    ".next",
+    "coverage"
+  ]
+}

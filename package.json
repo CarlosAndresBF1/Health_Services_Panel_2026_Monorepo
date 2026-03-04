@@ -1,0 +1,39 @@
+{
+  "name": "healthpanel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HealthPanel - Website monitoring dashboard",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:panel": "npm run dev --workspace=apps/panel",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "build": "npm run build --workspaces --if-present",
+    "build:panel": "npm run build --workspace=apps/panel",
+    "build:api": "npm run build --workspace=apps/api",
+    "start": "npm run start --workspaces --if-present",
+    "start:panel": "npm run start --workspace=apps/panel",
+    "start:api": "npm run start --workspace=apps/api",
+    "test": "npm run test --workspaces --if-present",
+    "test:panel": "npm run test --workspace=apps/panel",
+    "test:api": "npm run test --workspace=apps/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "lint:fix": "npm run lint:fix --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present && rm -rf node_modules",
+    "clean:dist": "npm run clean --workspaces --if-present",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:build": "docker compose build"
+  },
+  "devDependencies": {},
+  "dependencies": {}
+}

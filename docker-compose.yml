@@ -1,0 +1,52 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# HealthPanel - Docker Compose
+# PLACEHOLDER: Full configuration will be completed in Fase 6
+# ─────────────────────────────────────────────────────────────────────────────
+version: "3.9"
+
+services:
+  # ─── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: healthpanel_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+    ports:
+      - "${PORT_DB:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── API (NestJS) ───────────────────────────────────────────────────────────
+  # TODO: Fase 6 - Add api service
+  # api:
+  #   build:
+  #     context: .
+  #     dockerfile: apps/api/Dockerfile
+  #   container_name: healthpanel_api
+  #   ...
+
+  # ─── Panel (Next.js) ────────────────────────────────────────────────────────
+  # TODO: Fase 6 - Add panel service
+  # panel:
+  #   build:
+  #     context: .
+  #     dockerfile: apps/panel/Dockerfile
+  #   container_name: healthpanel_panel
+  #   ...
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  default:
+    name: healthpanel_network
+    driver: bridge
