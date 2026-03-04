@@ -10,13 +10,16 @@ import { AlertsService, AlertPayload } from "./alerts.service";
 // ─── Mock SendGrid ────────────────────────────────────────────────────────────
 
 const mockSgSend = jest.fn().mockResolvedValue([{ statusCode: 202 }]);
-jest.mock("@sendgrid/mail", () => ({
-  __esModule: true,
-  default: {
-    setApiKey: jest.fn(),
-    send: mockSgSend,
-  },
-}));
+jest.mock("@sendgrid/mail", () => {
+  // Must use a require-time reference; jest.mock is hoisted above const
+  return {
+    __esModule: true,
+    default: {
+      setApiKey: jest.fn(),
+      send: (...args: unknown[]) => mockSgSend(...args),
+    },
+  };
+});
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
