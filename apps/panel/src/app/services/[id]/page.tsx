@@ -6,6 +6,7 @@ import { DashboardShell } from '@/components/dashboard-shell';
 import { servicesApi, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, type ServiceRecord } from '@/lib/services-api';
 import { healthApi, type HealthCheckRecord, type IncidentRecord, type PaginatedHealthChecks, type PaginatedIncidents } from '@/lib/health-api';
 import { useMonitorSocket, type WsHealthUpdate, type WsIncidentNew, type WsIncidentResolved } from '@/lib/use-monitor-socket';
+import { LogViewer } from '@/components/log-viewer';
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
 
@@ -457,18 +458,6 @@ function IncidentsTab({
   );
 }
 
-function PlaceholderTab({ label }: { label: string }) {
-  return (
-    <div
-      className="flex flex-col items-center justify-center rounded-xl border py-24"
-      style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
-    >
-      <p className="text-base font-semibold text-text-primary">{label}</p>
-      <p className="mt-2 text-sm text-text-muted">Available in Phase 5 — log visualization</p>
-    </div>
-  );
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -702,7 +691,7 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
           onPageChange={setIncidentsPage}
         />
       )}
-      {activeTab === 'logs' && <PlaceholderTab label="Logs" />}
+      {activeTab === 'logs' && <LogViewer serviceId={serviceId} />}
     </DashboardShell>
   );
 }

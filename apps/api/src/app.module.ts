@@ -11,6 +11,7 @@ import { AppService } from "./app.service";
 import { AlertsModule } from "./modules/alerts/alerts.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { HealthCheckerModule } from "./modules/health-checker/health-checker.module";
+import { LogsModule } from "./modules/logs/logs.module";
 import { ServicesModule } from "./modules/services/services.module";
 
 @Module({
@@ -38,6 +39,7 @@ import { ServicesModule } from "./modules/services/services.module";
     AuthModule,
     ServicesModule,
     HealthCheckerModule,
+    LogsModule,
     AlertsModule,
   ],
   controllers: [AppController],

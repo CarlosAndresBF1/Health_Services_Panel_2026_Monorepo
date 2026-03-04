@@ -925,21 +925,22 @@ volumes:
 
 ---
 
-## PHASE 5: Log Visualization in the Dashboard
+## PHASE 5: Log Visualization in the Dashboard ✅
 
 **Goal**: Display logs from any monitored service from the dashboard.
 
 **Development agent**: Sonnet 4.6
 **Phase review**: Opus 4.6
+**Status**: COMPLETE — 154 tests, 12 suites
 
-### Subtask 5.1: Logs proxy API (NestJS)
+### Subtask 5.1: Logs proxy API (NestJS) ✅
 - `LogsModule`:
   - `GET /api/services/:id/logs?lines=100` → proxy to service endpoint
   - Adds `X-Monitor-Key` header
   - Error handling if service doesn't respond
   - 30s cache to avoid overload
 
-### Subtask 5.2: LogViewer component (Next.js)
+### Subtask 5.2: LogViewer component (Next.js) ✅
 - Terminal-style LogViewer component:
   - Dark background, monospace font
   - Auto-scroll to bottom
@@ -949,59 +950,60 @@ volumes:
   - Syntax highlighting: ERROR (red), WARN (yellow), INFO (blue)
 - Integrate in `/services/[id]` tab "Logs"
 
-### Subtask 5.3: Auto-refresh logs
+### Subtask 5.3: Auto-refresh logs ✅
 - Auto-refresh toggle with intervals (5s, 10s, 30s)
 - Visual "updating..." indicator
 - No refresh if tab is not active (performance)
 
-### Subtask 5.4: Tests and security Phase 5
-- Tests: LogsService proxy
+### Subtask 5.4: Tests and security Phase 5 ✅
+- Tests: LogsService proxy (12 tests) + LogsController (5 tests)
 - Verify logs cannot be accessed without authentication
 - Verify proxy is not open (only registered services)
 - Verify no log injection in UI (XSS)
 
 **Phase 5 acceptance criteria:**
-- [ ] Logs visible from the dashboard
-- [ ] LogViewer has terminal appearance
-- [ ] Text filter works
-- [ ] Auto-refresh works without memory leaks
-- [ ] Tests pass
-- [ ] No XSS or open proxy
+- [x] Logs visible from the dashboard
+- [x] LogViewer has terminal appearance
+- [x] Text filter works
+- [x] Auto-refresh works without memory leaks
+- [x] Tests pass
+- [x] No XSS or open proxy
 
 ---
 
-## PHASE 6: Health and Logs Endpoints for External Projects
+## PHASE 6: Health and Logs Endpoints for External Projects ✅
 
 **Goal**: Ready-to-copy/integrate code for existing NestJS, Laravel and Next.js projects.
 
 **Development agent**: Sonnet 4.6
 **Phase review**: Opus 4.6
+**Status**: COMPLETE — 179 tests, 15 suites
 
-### Subtask 6.1: Module for NestJS
+### Subtask 6.1: Module for NestJS ✅
 - `external-integrations/nestjs/`
-- `HealthModule` with controller:
-  - `GET /health` → status, uptime, DB, memory
-  - `GET /logs?lines=100` → last N log lines
+- `HealthPanelModule` with controllers:
+  - `GET /health` → status, uptime, memory, nodeVersion
+  - `GET /logs?lines=100` → last N log lines (max 500)
 - `MonitorGuard`: validates HMAC-SHA256 signature
   - Extracts `X-Monitor-Key`, `X-Monitor-Timestamp`, `X-Monitor-Signature`
-  - Looks up secret by api_key in config/env
+  - Looks up secret by api_key from env vars
   - Validates timestamp (5 min window)
   - Recalculates HMAC and compares with `timingSafeEqual`
-- Config via env vars: `MONITOR_API_KEY`, `MONITOR_SECRET`
+- Config via env vars: `MONITOR_API_KEY`, `MONITOR_SECRET`, `MONITOR_LOG_FILE`
 - README with step-by-step integration instructions
 
-### Subtask 6.2: Package for Laravel
+### Subtask 6.2: Package for Laravel ✅
 - `external-integrations/laravel/`
-- `HealthController` + routes + middleware
-  - `GET /health` → status, uptime, DB
+- `HealthController` + `LogsController` + routes + config
+  - `GET /health` → status, uptime, DB, memory, PHP/Laravel versions
   - `GET /logs?lines=100` → last N lines of `storage/logs/laravel.log`
 - `MonitorAuthMiddleware`: validates HMAC-SHA256
   - Uses `hash_hmac('sha256', ...)` + `hash_equals()` (timing-safe)
   - Validates timestamp (5 min window)
-- Config via `.env`: `MONITOR_API_KEY`, `MONITOR_SECRET`
-- README with instructions
+- Config via `config/healthpanel.php` + `.env`: `MONITOR_API_KEY`, `MONITOR_SECRET`
+- README with instructions for Laravel 10/11
 
-### Subtask 6.3: API Routes for Next.js
+### Subtask 6.3: API Routes for Next.js ✅
 - `external-integrations/nextjs/`
 - `app/api/health/route.ts` and `app/api/logs/route.ts`
 - `validateMonitorRequest()` helper: validates HMAC-SHA256
@@ -1010,19 +1012,20 @@ volumes:
 - Config via env vars: `MONITOR_API_KEY`, `MONITOR_SECRET`
 - README with instructions
 
-### Subtask 6.4: Tests Phase 6
-- Unit tests for each integration
-- HMAC validation tests: correct signature, invalid signature, expired timestamp, replay
+### Subtask 6.4: Tests Phase 6 ✅
+- NestJS MonitorGuard tests (12 tests): auth, replay, path tampering, signature validation
+- Next.js validateMonitorRequest tests (8 tests): auth, replay, path tampering, consistency
+- Cross-framework HMAC consistency tests (5 tests): HmacSignerService → NestJS/Next.js validation
 - Verify consistent response format across frameworks
 - Verify requests without headers or invalid headers return 401
 
 **Phase 6 acceptance criteria:**
-- [ ] Code ready for each framework
-- [ ] Consistent response format
-- [ ] HMAC-SHA256 auth works correctly
-- [ ] Replay attacks are rejected (timestamp > 5 min)
-- [ ] Clear documentation with step-by-step instructions
-- [ ] Tests pass
+- [x] Code ready for each framework
+- [x] Consistent response format
+- [x] HMAC-SHA256 auth works correctly
+- [x] Replay attacks are rejected (timestamp > 5 min)
+- [x] Clear documentation with step-by-step instructions
+- [x] Tests pass
 
 ---
 
