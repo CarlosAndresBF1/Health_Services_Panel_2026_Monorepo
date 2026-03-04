@@ -2,26 +2,32 @@
 FROM node:22-alpine AS deps
 
 RUN apk add --no-cache libc6-compat
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production --ignore-scripts && \
-    cp -r node_modules prod_node_modules && \
-    npm ci
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY apps/panel/package.json ./apps/panel/
+COPY packages/ ./packages/
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile
 
 # ─── Stage 2: Build ───────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/panel/node_modules ./apps/panel/node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-RUN npm run build
+RUN pnpm --filter=@healthpanel/panel run build
 
 # ─── Stage 3: Production ──────────────────────────────────────────────────────
 FROM node:22-alpine AS runner

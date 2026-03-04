@@ -3,18 +3,27 @@ FROM node:22-alpine
 LABEL org.opencontainers.image.title="HealthPanel Panel (Dev)"
 LABEL org.opencontainers.image.description="HealthPanel Next.js monitoring dashboard - development"
 
+# Enable pnpm via corepack (ships with Node.js 22)
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
 WORKDIR /app
 
-# Install dependencies first (layer caching)
-COPY package.json package-lock.json* ./
-RUN npm install
+# Copy workspace config and panel package files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY apps/panel/package.json ./apps/panel/
+COPY packages/ ./packages/
+
+# Install dependencies (workspace aware)
+RUN pnpm install
 
 # Copy source files
 COPY . .
+
+WORKDIR /app/apps/panel
 
 EXPOSE 3000
 
 ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1
 
-CMD ["npm", "run", "dev"]
+CMD ["pnpm", "run", "dev"]

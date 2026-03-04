@@ -1,24 +1,28 @@
 # ─── Stage 1: Install dependencies ───────────────────────────────────────────
 FROM node:22-alpine AS deps
 
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
 WORKDIR /app
 
 # Copy root package files for workspace resolution
-COPY package.json package-lock.json* ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY packages/ ./packages/
 
 # Copy api package files
 COPY apps/api/package.json ./apps/api/
 
 # Install all dependencies
-RUN npm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # ─── Stage 2: Build ───────────────────────────────────────────────────────────
 FROM node:22-alpine AS build
 
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
 WORKDIR /app
 
-# Copy installed node_modules and source from deps stage
+# Copy installed node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 
@@ -31,23 +35,25 @@ COPY packages/ ./packages/
 
 WORKDIR /app/apps/api
 
-RUN npm run build
+RUN pnpm run build
 
 # ─── Stage 3: Production ──────────────────────────────────────────────────────
 FROM node:22-alpine AS production
+
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
 # Copy root package files
-COPY package.json ./
+COPY package.json pnpm-workspace.yaml ./
 
 # Copy api package.json
 COPY apps/api/package.json ./apps/api/
 
 # Install only production dependencies
-RUN npm install --omit=dev --workspace=apps/api
+RUN pnpm install --prod --filter=@healthpanel/api
 
 # Copy compiled output from build stage
 COPY --from=build /app/apps/api/dist ./apps/api/dist
