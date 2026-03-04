@@ -722,14 +722,15 @@ volumes:
 
 ---
 
-## PHASE 2: Services CRUD and Base Dashboard
+## PHASE 2: Services CRUD and Base Dashboard ✅
 
 **Goal**: Functional panel to manage monitored services and main dashboard view.
 
 **Development agent**: Sonnet 4.6
 **Phase review**: Opus 4.6
+**Status**: COMPLETED
 
-### Subtask 2.1: Services API CRUD (NestJS)
+### Subtask 2.1: Services API CRUD (NestJS) ✅
 - `ServicesModule` with controller and service:
   - `POST /api/services` - Create service (auto-generates `monitor_api_key` + `monitor_secret`)
   - `GET /api/services` - List services (with pagination, secret hidden)
@@ -744,7 +745,7 @@ volumes:
 - All endpoints protected with JwtAuthGuard
 - `HmacSigner` utility for signing outgoing requests to external services
 
-### Subtask 2.2: UI - Services management (Next.js)
+### Subtask 2.2: UI - Services management (Next.js) ✅
 - `/services` page with table of registered services
 - Apply complete Design System (Enterprise Security Theme)
 - Modal/form for adding/editing service:
@@ -759,7 +760,7 @@ volumes:
 - Actions: edit, delete, toggle active, regenerate keys
 - Visual warning if URL doesn't use HTTPS
 
-### Subtask 2.3: Main dashboard (Next.js)
+### Subtask 2.3: Main dashboard (Next.js) ✅
 - Layout with sidebar navigation (Dashboard, Services, Settings)
 - Main view with service cards grid:
   - Name and type (badge)
@@ -769,7 +770,7 @@ volumes:
   - Last check (relative timestamp)
 - Responsive design
 
-### Subtask 2.4: Service detail view
+### Subtask 2.4: Service detail view ✅
 - `/services/[id]` page
 - Tabs: Overview, Health Checks, Incidents, Logs
 - Overview tab: response time chart (last 24h), general stats
@@ -777,7 +778,7 @@ volumes:
 - Incidents tab: incident history
 - "Check Now" button (manual check)
 
-### Subtask 2.5: Tests and security Phase 2
+### Subtask 2.5: Tests and security Phase 2 ✅
 - Unit tests: ServicesService CRUD
 - Integration tests: CRUD endpoints
 - Verify validations reject malicious input
@@ -785,24 +786,25 @@ volumes:
 - Verify input sanitization (prevent XSS/injection)
 
 **Phase 2 acceptance criteria:**
-- [ ] Services CRUD works correctly
-- [ ] Dashboard shows service cards
-- [ ] Detail view shows service information
-- [ ] UI is responsive
-- [ ] All endpoints are protected
-- [ ] Tests pass
-- [ ] No security vulnerabilities
+- [x] Services CRUD works correctly
+- [x] Dashboard shows service cards
+- [x] Detail view shows service information
+- [x] UI is responsive
+- [x] All endpoints are protected
+- [x] Tests pass (66 tests passing across 4 suites)
+- [x] No security vulnerabilities
 
 ---
 
-## PHASE 3: Health Check Engine
+## PHASE 3: Health Check Engine ✅
 
 **Goal**: Automated health check system with real-time results and incident detection.
 
 **Development agent**: Sonnet 4.6
 **Phase review**: Opus 4.6
+**Status**: COMPLETED — 94 tests passing, 6 suites
 
-### Subtask 3.1: Health Checker Service (NestJS)
+### Subtask 3.1: Health Checker Service (NestJS) ✅
 - `HealthCheckerModule` with cron jobs via `@nestjs/schedule`
 - Check logic per service:
   1. Sign request with HMAC-SHA256 (using `HmacSigner` + service secret)
@@ -814,7 +816,7 @@ volumes:
 - Retry: 1 retry before marking as down
 - Dynamic cron: respect each service's interval
 
-### Subtask 3.2: Incident detection and management
+### Subtask 3.2: Incident detection and management ✅
 - On detecting `down`:
   1. Check if there is an open incident for the service
   2. If not, create new incident
@@ -823,7 +825,7 @@ volumes:
   1. Close incident (set `resolved_at`)
   2. Emit recovery event
 
-### Subtask 3.3: WebSocket Gateway (NestJS → Next.js)
+### Subtask 3.3: WebSocket Gateway (NestJS → Next.js) ✅
 - `MonitorGateway` using `@nestjs/websockets` + Socket.IO
 - Emitted events:
   - `health:update` → new check result
@@ -832,12 +834,12 @@ volumes:
   - `service:update` → service change
 - Client in Next.js panel listens and updates UI in real time
 
-### Subtask 3.4: Manual check endpoint
+### Subtask 3.4: Manual check endpoint ✅
 - `POST /api/services/:id/check` → execute immediate check
 - Returns result
 - Emits WebSocket event
 
-### Subtask 3.5: Tests and security Phase 3
+### Subtask 3.5: Tests and security Phase 3 ✅
 - Unit tests: HealthCheckerService, classification logic
 - Unit tests: incident detection
 - Integration test: manual check endpoint
@@ -845,13 +847,13 @@ volumes:
 - Verify requests are not made to private IPs/localhost (SSRF prevention)
 
 **Phase 3 acceptance criteria:**
-- [ ] Health checks run automatically per interval
-- [ ] Results are saved to DB
-- [ ] Incidents are created/resolved automatically
-- [ ] Dashboard updates in real time via WebSocket
-- [ ] Manual check works
-- [ ] Tests pass
-- [ ] No SSRF vulnerabilities
+- [x] Health checks run automatically per interval
+- [x] Results are saved to DB
+- [x] Incidents are created/resolved automatically
+- [x] Dashboard updates in real time via WebSocket
+- [x] Manual check works
+- [x] Tests pass
+- [x] No SSRF vulnerabilities
 
 ---
 

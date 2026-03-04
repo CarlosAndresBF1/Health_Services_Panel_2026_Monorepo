@@ -1,9 +1,11 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboard-shell';
 import { servicesApi, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, type ServiceRecord } from '@/lib/services-api';
+import { healthApi, type HealthCheckRecord, type IncidentRecord, type PaginatedHealthChecks, type PaginatedIncidents } from '@/lib/health-api';
+import { useMonitorSocket, type WsHealthUpdate, type WsIncidentNew, type WsIncidentResolved } from '@/lib/use-monitor-socket';
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
 
@@ -15,6 +17,34 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'incidents', label: 'Incidents' },
   { id: 'logs', label: 'Logs' },
 ];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const STATUS_COLOR: Record<string, string> = {
+  up: '#22C55E',
+  down: '#EF4444',
+  degraded: '#F59E0B',
+  unknown: '#6B7280',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  up: 'UP',
+  down: 'DOWN',
+  degraded: 'DEGRADED',
+  unknown: 'UNKNOWN',
+};
+
+function formatDuration(start: string, end: string | null): string {
+  const ms = (end ? new Date(end).getTime() : Date.now()) - new Date(start).getTime();
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ${minutes % 60}m`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ${hours % 24}h`;
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -43,24 +73,49 @@ function TypeBadge({ type }: { type: string }) {
   );
 }
 
-function StatusDot({ status }: { status: 'up' | 'down' | 'degraded' | 'unknown' }) {
-  const colorMap = { up: '#22C55E', down: '#EF4444', degraded: '#F59E0B', unknown: '#6B7280' };
-  const labelMap = { up: 'UP', down: 'DOWN', degraded: 'DEGRADED', unknown: 'UNKNOWN' };
-  const color = colorMap[status];
+function StatusDot({ status }: { status: string }) {
+  const color = STATUS_COLOR[status] ?? STATUS_COLOR['unknown'];
+  const label = STATUS_LABEL[status] ?? STATUS_LABEL['unknown'];
   return (
     <span className="flex items-center gap-2">
       <span
         className="inline-block h-2.5 w-2.5 rounded-full"
         style={{ backgroundColor: color, boxShadow: status !== 'unknown' ? `0 0 6px ${color}` : 'none' }}
       />
-      <span className="font-mono text-xs font-medium" style={{ color }}>{labelMap[status]}</span>
+      <span className="font-mono text-xs font-medium" style={{ color }}>{label}</span>
+    </span>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const color = STATUS_COLOR[status] ?? STATUS_COLOR['unknown'];
+  const label = STATUS_LABEL[status] ?? STATUS_LABEL['unknown'];
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-xs font-medium"
+      style={{ color, backgroundColor: `${color}1A` }}
+    >
+      <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+      {label}
     </span>
   );
 }
 
 // ─── Tab panels ───────────────────────────────────────────────────────────────
 
-function OverviewTab({ service }: { service: ServiceRecord }) {
+function OverviewTab({
+  service,
+  latestCheck,
+  onCheckNow,
+  checking,
+}: {
+  service: ServiceRecord;
+  latestCheck: HealthCheckRecord | null;
+  onCheckNow: () => void;
+  checking: boolean;
+}) {
+  const currentStatus = latestCheck?.status ?? 'unknown';
+
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       {/* Main config */}
@@ -116,17 +171,288 @@ function OverviewTab({ service }: { service: ServiceRecord }) {
         </div>
       </div>
 
-      {/* Current status */}
+      {/* Current status + Check Now */}
       <div
         className="rounded-xl border p-6 lg:col-span-2"
         style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
       >
-        <h3 className="mb-4 text-sm font-semibold text-text-primary">Current status</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-text-primary">Current status</h3>
+          <button
+            onClick={onCheckNow}
+            disabled={checking}
+            className="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 disabled:opacity-50"
+            style={{ backgroundColor: '#C8A951', color: '#0A0F1A' }}
+          >
+            {checking ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Checking…
+              </span>
+            ) : (
+              'Check Now'
+            )}
+          </button>
+        </div>
         <div className="flex items-center gap-6">
-          <StatusDot status="unknown" />
-          <span className="text-sm text-text-muted">No health check data yet — checks will appear here once your monitor agent is running.</span>
+          <StatusDot status={currentStatus} />
+          {latestCheck ? (
+            <div className="flex flex-wrap gap-4 text-sm text-text-muted">
+              {latestCheck.responseTimeMs != null && (
+                <span>Response: <strong className="text-text-primary">{latestCheck.responseTimeMs}ms</strong></span>
+              )}
+              {latestCheck.statusCode != null && (
+                <span>HTTP <strong className="text-text-primary">{latestCheck.statusCode}</strong></span>
+              )}
+              <span>Last check: <strong className="text-text-primary">{new Date(latestCheck.checkedAt).toLocaleString()}</strong></span>
+            </div>
+          ) : (
+            <span className="text-sm text-text-muted">No health check data yet — click &quot;Check Now&quot; or wait for auto-check.</span>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function HealthChecksTab({
+  checks,
+  total,
+  page,
+  loading: isLoading,
+  onPageChange,
+}: {
+  checks: HealthCheckRecord[];
+  total: number;
+  page: number;
+  loading: boolean;
+  onPageChange: (p: number) => void;
+}) {
+  const pageSize = 20;
+  const totalPages = Math.ceil(total / pageSize);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="h-12 animate-pulse rounded-lg" style={{ backgroundColor: '#111827' }} />
+        ))}
+      </div>
+    );
+  }
+
+  if (checks.length === 0) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center rounded-xl border py-24"
+        style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
+      >
+        <p className="text-base font-semibold text-text-primary">No health checks yet</p>
+        <p className="mt-2 text-sm text-text-muted">Checks will appear here once the monitor starts running.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div
+        className="overflow-hidden rounded-xl border"
+        style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
+      >
+        <table className="w-full">
+          <thead>
+            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <th className="px-4 py-3 text-left font-mono text-xs text-text-muted uppercase tracking-wider">Time</th>
+              <th className="px-4 py-3 text-left font-mono text-xs text-text-muted uppercase tracking-wider">Status</th>
+              <th className="px-4 py-3 text-right font-mono text-xs text-text-muted uppercase tracking-wider">Response</th>
+              <th className="px-4 py-3 text-right font-mono text-xs text-text-muted uppercase tracking-wider">HTTP</th>
+              <th className="px-4 py-3 text-left font-mono text-xs text-text-muted uppercase tracking-wider">Error</th>
+            </tr>
+          </thead>
+          <tbody>
+            {checks.map((check) => (
+              <tr
+                key={check.id}
+                className="transition-colors hover:bg-white/[0.02]"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+              >
+                <td className="px-4 py-3 font-mono text-xs text-text-muted whitespace-nowrap">
+                  {new Date(check.checkedAt).toLocaleString()}
+                </td>
+                <td className="px-4 py-3">
+                  <StatusBadge status={check.status} />
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs text-text-primary">
+                  {check.responseTimeMs != null ? `${check.responseTimeMs}ms` : '—'}
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs text-text-primary">
+                  {check.statusCode ?? '—'}
+                </td>
+                <td className="px-4 py-3 font-mono text-xs text-status-down max-w-64 truncate">
+                  {check.errorMessage ?? '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-xs text-text-muted">
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+          </span>
+          <div className="flex gap-1">
+            <button
+              disabled={page <= 1}
+              onClick={() => onPageChange(page - 1)}
+              className="rounded-lg border px-3 py-1.5 text-xs text-text-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-30"
+              style={{ borderColor: 'rgba(255,255,255,0.12)' }}
+            >
+              ← Prev
+            </button>
+            <button
+              disabled={page >= totalPages}
+              onClick={() => onPageChange(page + 1)}
+              className="rounded-lg border px-3 py-1.5 text-xs text-text-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-30"
+              style={{ borderColor: 'rgba(255,255,255,0.12)' }}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IncidentsTab({
+  incidents,
+  total,
+  page,
+  loading: isLoading,
+  onPageChange,
+}: {
+  incidents: IncidentRecord[];
+  total: number;
+  page: number;
+  loading: boolean;
+  onPageChange: (p: number) => void;
+}) {
+  const pageSize = 20;
+  const totalPages = Math.ceil(total / pageSize);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-16 animate-pulse rounded-lg" style={{ backgroundColor: '#111827' }} />
+        ))}
+      </div>
+    );
+  }
+
+  if (incidents.length === 0) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center rounded-xl border py-24"
+        style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
+      >
+        <div className="mb-3 text-3xl">✅</div>
+        <p className="text-base font-semibold text-text-primary">No incidents</p>
+        <p className="mt-2 text-sm text-text-muted">This service has no recorded incidents.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="space-y-3">
+        {incidents.map((incident) => {
+          const isOpen = incident.resolvedAt == null;
+          return (
+            <div
+              key={incident.id}
+              className="rounded-xl border p-5 transition-colors"
+              style={{
+                backgroundColor: '#111827',
+                borderColor: isOpen ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.1)',
+              }}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-xs font-semibold"
+                      style={
+                        isOpen
+                          ? { color: '#EF4444', backgroundColor: 'rgba(239,68,68,0.15)' }
+                          : { color: '#22C55E', backgroundColor: 'rgba(34,197,94,0.15)' }
+                      }
+                    >
+                      <span
+                        className="inline-block h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: isOpen ? '#EF4444' : '#22C55E' }}
+                      />
+                      {isOpen ? 'ONGOING' : 'RESOLVED'}
+                    </span>
+                    <span className="font-mono text-xs text-text-muted">#{incident.id}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-4 text-xs text-text-muted">
+                    <span>Started: <strong className="text-text-primary">{new Date(incident.startedAt).toLocaleString()}</strong></span>
+                    {incident.resolvedAt && (
+                      <span>Resolved: <strong className="text-text-primary">{new Date(incident.resolvedAt).toLocaleString()}</strong></span>
+                    )}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-mono text-xs text-text-muted">Duration</p>
+                  <p className="font-mono text-sm font-semibold text-text-primary">
+                    {formatDuration(incident.startedAt, incident.resolvedAt)}
+                  </p>
+                </div>
+              </div>
+              {incident.emailSent && (
+                <div className="mt-3 flex items-center gap-2 text-xs text-text-muted" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.75rem' }}>
+                  <span>📧</span>
+                  <span>Alert email sent {incident.emailSentAt ? `at ${new Date(incident.emailSentAt).toLocaleString()}` : ''}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-xs text-text-muted">
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+          </span>
+          <div className="flex gap-1">
+            <button
+              disabled={page <= 1}
+              onClick={() => onPageChange(page - 1)}
+              className="rounded-lg border px-3 py-1.5 text-xs text-text-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-30"
+              style={{ borderColor: 'rgba(255,255,255,0.12)' }}
+            >
+              ← Prev
+            </button>
+            <button
+              disabled={page >= totalPages}
+              onClick={() => onPageChange(page + 1)}
+              className="rounded-lg border px-3 py-1.5 text-xs text-text-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-30"
+              style={{ borderColor: 'rgba(255,255,255,0.12)' }}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -138,7 +464,7 @@ function PlaceholderTab({ label }: { label: string }) {
       style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
     >
       <p className="text-base font-semibold text-text-primary">{label}</p>
-      <p className="mt-2 text-sm text-text-muted">Available in Phase 3 — health check engine</p>
+      <p className="mt-2 text-sm text-text-muted">Available in Phase 5 — log visualization</p>
     </div>
   );
 }
@@ -147,17 +473,149 @@ function PlaceholderTab({ label }: { label: string }) {
 
 export default function ServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const serviceId = Number(id);
+
   const [service, setService] = useState<ServiceRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
+  // Health checks state
+  const [checks, setChecks] = useState<HealthCheckRecord[]>([]);
+  const [checksTotal, setChecksTotal] = useState(0);
+  const [checksPage, setChecksPage] = useState(1);
+  const [checksLoading, setChecksLoading] = useState(false);
+
+  // Incidents state
+  const [incidents, setIncidents] = useState<IncidentRecord[]>([]);
+  const [incidentsTotal, setIncidentsTotal] = useState(0);
+  const [incidentsPage, setIncidentsPage] = useState(1);
+  const [incidentsLoading, setIncidentsLoading] = useState(false);
+
+  // Latest check for overview
+  const [latestCheck, setLatestCheck] = useState<HealthCheckRecord | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  // Load service
   useEffect(() => {
     servicesApi
-      .get(Number(id))
+      .get(serviceId)
       .then(setService)
       .catch(() => setService(null))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [serviceId]);
+
+  // Load latest check for overview status
+  useEffect(() => {
+    healthApi.getChecks(serviceId, 1, 1).then((res: PaginatedHealthChecks) => {
+      setLatestCheck(res.data[0] ?? null);
+    }).catch(() => { /* ignore */ });
+  }, [serviceId]);
+
+  // Load health checks when tab is active or page changes
+  useEffect(() => {
+    if (activeTab !== 'health-checks') return;
+    setChecksLoading(true);
+    healthApi
+      .getChecks(serviceId, checksPage)
+      .then((res: PaginatedHealthChecks) => {
+        setChecks(res.data);
+        setChecksTotal(res.total);
+      })
+      .catch(() => setChecks([]))
+      .finally(() => setChecksLoading(false));
+  }, [serviceId, activeTab, checksPage]);
+
+  // Load incidents when tab is active or page changes
+  useEffect(() => {
+    if (activeTab !== 'incidents') return;
+    setIncidentsLoading(true);
+    healthApi
+      .getIncidents(serviceId, incidentsPage)
+      .then((res: PaginatedIncidents) => {
+        setIncidents(res.data);
+        setIncidentsTotal(res.total);
+      })
+      .catch(() => setIncidents([]))
+      .finally(() => setIncidentsLoading(false));
+  }, [serviceId, activeTab, incidentsPage]);
+
+  // WebSocket: real-time updates
+  const onHealthUpdate = useCallback(
+    (data: WsHealthUpdate) => {
+      if (data.serviceId !== serviceId) return;
+      const newCheck: HealthCheckRecord = {
+        id: Date.now(), // temp id for rendering
+        serviceId: data.serviceId,
+        status: data.status as HealthCheckRecord['status'],
+        responseTimeMs: data.responseTimeMs,
+        statusCode: data.statusCode,
+        errorMessage: null,
+        checkedAt: data.checkedAt,
+      };
+      setLatestCheck(newCheck);
+      // Prepend to checks list if on first page
+      setChecksPage((p) => {
+        if (p === 1) {
+          setChecks((prev) => [newCheck, ...prev.slice(0, 19)]);
+          setChecksTotal((t) => t + 1);
+        }
+        return p;
+      });
+    },
+    [serviceId],
+  );
+
+  useMonitorSocket({
+    onHealthUpdate,
+    onIncidentNew: useCallback(
+      (data: WsIncidentNew) => {
+        if (data.serviceId !== serviceId) return;
+        // Refresh incidents if on first page
+        setIncidentsPage((p) => {
+          if (p === 1) {
+            healthApi.getIncidents(serviceId, 1).then((res: PaginatedIncidents) => {
+              setIncidents(res.data);
+              setIncidentsTotal(res.total);
+            }).catch(() => { /* ignore */ });
+          }
+          return p;
+        });
+      },
+      [serviceId],
+    ),
+    onIncidentResolved: useCallback(
+      (data: WsIncidentResolved) => {
+        if (data.serviceId !== serviceId) return;
+        // Update resolved incident in list
+        setIncidents((prev) =>
+          prev.map((inc) =>
+            inc.id === data.id ? { ...inc, resolvedAt: data.resolvedAt } : inc,
+          ),
+        );
+      },
+      [serviceId],
+    ),
+  });
+
+  // Manual check
+  const handleCheckNow = useCallback(async () => {
+    setChecking(true);
+    try {
+      const result = await healthApi.check(serviceId);
+      setLatestCheck(result);
+      // Refresh checks if currently viewing first page
+      if (checksPage === 1) {
+        healthApi.getChecks(serviceId, 1).then((res: PaginatedHealthChecks) => {
+          setChecks(res.data);
+          setChecksTotal(res.total);
+        }).catch(() => { /* ignore */ });
+      }
+    } catch {
+      // ignore
+    } finally {
+      setChecking(false);
+    }
+  }, [serviceId, checksPage]);
 
   if (loading) {
     return (
@@ -218,9 +676,32 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* Tab content */}
-      {activeTab === 'overview' && <OverviewTab service={service} />}
-      {activeTab === 'health-checks' && <PlaceholderTab label="Health Checks" />}
-      {activeTab === 'incidents' && <PlaceholderTab label="Incidents" />}
+      {activeTab === 'overview' && (
+        <OverviewTab
+          service={service}
+          latestCheck={latestCheck}
+          onCheckNow={handleCheckNow}
+          checking={checking}
+        />
+      )}
+      {activeTab === 'health-checks' && (
+        <HealthChecksTab
+          checks={checks}
+          total={checksTotal}
+          page={checksPage}
+          loading={checksLoading}
+          onPageChange={setChecksPage}
+        />
+      )}
+      {activeTab === 'incidents' && (
+        <IncidentsTab
+          incidents={incidents}
+          total={incidentsTotal}
+          page={incidentsPage}
+          loading={incidentsLoading}
+          onPageChange={setIncidentsPage}
+        />
+      )}
       {activeTab === 'logs' && <PlaceholderTab label="Logs" />}
     </DashboardShell>
   );

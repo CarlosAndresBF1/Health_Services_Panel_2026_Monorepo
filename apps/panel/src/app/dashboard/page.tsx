@@ -1,30 +1,45 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 
 import { DashboardShell } from '@/components/dashboard-shell';
-import { type ServiceRecord, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, servicesApi } from '@/lib/services-api';
+import { type ServiceRecord, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, servicesApi, type PaginatedServices } from '@/lib/services-api';
+import { healthApi, type HealthCheckRecord, type PaginatedHealthChecks } from '@/lib/health-api';
+import { useMonitorSocket, type WsHealthUpdate } from '@/lib/use-monitor-socket';
 
-function StatusDot({ status }: { status: 'up' | 'down' | 'degraded' | 'unknown' }) {
+type ServiceStatus = 'up' | 'down' | 'degraded' | 'unknown';
+
+function StatusDot({ status }: { status: ServiceStatus }) {
   const colorMap = {
     up: '#22C55E',
     down: '#EF4444',
     degraded: '#F59E0B',
     unknown: '#6B7280',
   };
+  const labelMap = {
+    up: 'UP',
+    down: 'DOWN',
+    degraded: 'DEGRADED',
+    unknown: '—',
+  };
   const color = colorMap[status];
   return (
-    <span
-      className="inline-block h-2 w-2 rounded-full"
-      style={{ backgroundColor: color, boxShadow: status !== 'unknown' ? `0 0 6px ${color}` : 'none' }}
-    />
+    <span className="flex items-center gap-2">
+      <span
+        className="inline-block h-2 w-2 rounded-full"
+        style={{ backgroundColor: color, boxShadow: status !== 'unknown' ? `0 0 6px ${color}` : 'none' }}
+      />
+      <span className="font-mono text-xs" style={{ color }}>{labelMap[status]}</span>
+    </span>
   );
 }
 
-function ServiceCard({ service }: { service: ServiceRecord }) {
+function ServiceCard({ service, latestCheck }: { service: ServiceRecord; latestCheck?: HealthCheckRecord | null }) {
   const typeLabel = SERVICE_TYPE_LABELS[service.type] ?? service.type;
   const typeColor = SERVICE_TYPE_COLORS[service.type] ?? '#9CA3AF';
+  const status: ServiceStatus = (latestCheck?.status as ServiceStatus) ?? 'unknown';
+  const statusLabel = status === 'unknown' ? 'Pending check' : `${latestCheck?.responseTimeMs ?? '—'}ms`;
 
   return (
     <Link href={`/services/${service.id}`}>
@@ -51,8 +66,8 @@ function ServiceCard({ service }: { service: ServiceRecord }) {
         {/* Status row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <StatusDot status="unknown" />
-            <span className="font-mono text-xs text-text-muted">Pending check</span>
+            <StatusDot status={status} />
+            <span className="font-mono text-xs text-text-muted">{statusLabel}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span
@@ -113,15 +128,68 @@ function EmptyState() {
 export default function DashboardPage() {
   const [services, setServices] = useState<ServiceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  // Map serviceId → latest HealthCheckRecord
+  const [statusMap, setStatusMap] = useState<Record<number, HealthCheckRecord>>({});
 
+  // Load services
   useEffect(() => {
     servicesApi.list()
-      .then((res) => setServices(res.data))
+      .then((res: PaginatedServices) => setServices(res.data))
       .catch(() => setServices([]))
       .finally(() => setLoading(false));
   }, []);
 
+  // Load latest check for each service
+  useEffect(() => {
+    if (services.length === 0) return;
+    const promises = services.map((s) =>
+      healthApi.getChecks(s.id, 1, 1).then((res: PaginatedHealthChecks) => ({
+        serviceId: s.id,
+        check: res.data[0] ?? null,
+      })).catch(() => ({ serviceId: s.id, check: null as HealthCheckRecord | null })),
+    );
+
+    Promise.all(promises).then((results) => {
+      const map: Record<number, HealthCheckRecord> = {};
+      for (const r of results) {
+        if (r.check) {
+          map[r.serviceId] = r.check;
+        }
+      }
+      setStatusMap(map);
+    });
+  }, [services]);
+
+  // WebSocket: real-time status updates
+  const onHealthUpdate = useCallback((data: WsHealthUpdate) => {
+    setStatusMap((prev) => ({
+      ...prev,
+      [data.serviceId]: {
+        id: Date.now(),
+        serviceId: data.serviceId,
+        status: data.status as HealthCheckRecord['status'],
+        responseTimeMs: data.responseTimeMs,
+        statusCode: data.statusCode,
+        errorMessage: null,
+        checkedAt: data.checkedAt,
+      },
+    }));
+  }, []);
+
+  useMonitorSocket({
+    onHealthUpdate,
+    onServiceUpdate: useCallback(() => {
+      // Reload services list when a service is updated
+      servicesApi.list()
+        .then((res: PaginatedServices) => setServices(res.data))
+        .catch(() => { /* ignore */ });
+    }, []),
+  });
+
   const activeCount = services.filter((s) => s.isActive).length;
+  const upCount = Object.values(statusMap).filter((c) => c.status === 'up').length;
+  const downCount = Object.values(statusMap).filter((c) => c.status === 'down').length;
+  const degradedCount = Object.values(statusMap).filter((c) => c.status === 'degraded').length;
 
   return (
     <DashboardShell
@@ -139,11 +207,13 @@ export default function DashboardPage() {
     >
       {/* Stats */}
       {services.length > 0 && (
-        <div className="mb-8 grid grid-cols-3 gap-4">
+        <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {[
-            { label: 'Total Services', value: services.length },
-            { label: 'Active', value: activeCount },
-            { label: 'Inactive', value: services.length - activeCount },
+            { label: 'Total', value: services.length, color: '#9CA3AF' },
+            { label: 'Active', value: activeCount, color: '#60A5FA' },
+            { label: 'Up', value: upCount, color: '#22C55E' },
+            { label: 'Degraded', value: degradedCount, color: '#F59E0B' },
+            { label: 'Down', value: downCount, color: '#EF4444' },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -151,7 +221,7 @@ export default function DashboardPage() {
               style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
             >
               <p className="font-mono text-xs text-text-muted uppercase tracking-wider">{stat.label}</p>
-              <p className="mt-1 text-2xl font-bold text-text-primary">{stat.value}</p>
+              <p className="mt-1 text-2xl font-bold" style={{ color: stat.color }}>{stat.value}</p>
             </div>
           ))}
         </div>
@@ -173,7 +243,7 @@ export default function DashboardPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
-            <ServiceCard key={s.id} service={s} />
+            <ServiceCard key={s.id} service={s} latestCheck={statusMap[s.id] ?? null} />
           ))}
         </div>
       )}

@@ -2,11 +2,15 @@ import { join } from "path";
 
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
+import { EventEmitterModule } from "@nestjs/event-emitter";
+import { ScheduleModule } from "@nestjs/schedule";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
+import { AlertsModule } from "./modules/alerts/alerts.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { HealthCheckerModule } from "./modules/health-checker/health-checker.module";
 import { ServicesModule } from "./modules/services/services.module";
 
 @Module({
@@ -14,6 +18,8 @@ import { ServicesModule } from "./modules/services/services.module";
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -31,6 +37,8 @@ import { ServicesModule } from "./modules/services/services.module";
     }),
     AuthModule,
     ServicesModule,
+    HealthCheckerModule,
+    AlertsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

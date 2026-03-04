@@ -6,17 +6,7 @@ const config: Config = {
   rootDir: "src",
   testRegex: ".*\\.spec\\.ts$",
   transform: {
-    "^.+\\.(t|j)s$": [
-      "ts-jest",
-      {
-        tsconfig: {
-          paths: {
-            "@/*": ["./src/*"],
-            "@healthpanel/shared": ["../../packages/shared/src/index.ts"],
-          },
-        },
-      },
-    ],
+    "^.+\\.(t|j)s$": ["ts-jest", { tsconfig: "./tsconfig.json" }],
   },
   collectCoverageFrom: ["**/*.(t|j)s"],
   coverageDirectory: "../coverage",
