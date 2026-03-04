@@ -34,6 +34,8 @@ import { ServicesModule } from "./modules/services/services.module";
         entities: [join(__dirname, "**/*.entity{.ts,.js}")],
         synchronize: false, // NEVER true - use migrations instead
         logging: configService.get("NODE_ENV") === "development",
+        retryAttempts: 10,
+        retryDelay: 3000, // ms between retry attempts
       }),
     }),
     AuthModule,

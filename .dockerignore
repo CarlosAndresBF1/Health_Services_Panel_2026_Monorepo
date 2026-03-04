@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build output
+dist
+**/dist
+.next
+**/.next
+
+# Git
+.git
+.gitignore
+.gitkeep
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Tests
+coverage
+**/coverage
+**/*.spec.ts
+**/*.test.ts
+
+# Documentation (not needed in image)
+*.md
+!README.md
+LICENSE
+
+# Docker files (prevent recursive context)
+docker-compose*.yml
+Dockerfile*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude/AI config
+.claude

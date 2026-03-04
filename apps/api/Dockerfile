@@ -12,7 +12,7 @@ COPY packages/ ./packages/
 # Copy api package files
 COPY apps/api/package.json ./apps/api/
 
-# Install all dependencies
+# Install all dependencies (frozen lockfile for reproducibility)
 RUN pnpm install --frozen-lockfile
 
 # ─── Stage 2: Build ───────────────────────────────────────────────────────────
@@ -40,11 +40,32 @@ RUN pnpm run build
 # ─── Stage 3: Production ──────────────────────────────────────────────────────
 FROM node:22-alpine AS production
 
+LABEL org.opencontainers.image.title="HealthPanel API"
+LABEL org.opencontainers.image.description="HealthPanel NestJS monitoring API"
+
+# Install chromium dependencies for Puppeteer
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    && rm -rf /var/cache/apk/*
+
+# Tell Puppeteer to use system chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 WORKDIR /app
 
 ENV NODE_ENV=production
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nestjs && \
+    adduser --system --uid 1001 nestjs
 
 # Copy root package files
 COPY package.json pnpm-workspace.yaml ./
@@ -58,8 +79,17 @@ RUN pnpm install --prod --filter=@healthpanel/api
 # Copy compiled output from build stage
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 
+# Create screenshots directory with proper ownership
+RUN mkdir -p /app/screenshots && chown -R nestjs:nestjs /app/screenshots
+
+# Switch to non-root user
+USER nestjs
+
 WORKDIR /app/apps/api
 
 EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 CMD ["node", "dist/main"]
