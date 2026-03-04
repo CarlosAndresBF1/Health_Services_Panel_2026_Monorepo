@@ -3,7 +3,6 @@ import { getRepositoryToken } from "@nestjs/typeorm";
 import { Test, TestingModule } from "@nestjs/testing";
 import { IsNull } from "typeorm";
 
-import { ServiceType } from "@healthpanel/shared";
 import { CryptoService } from "../../common/crypto.service";
 import { Service } from "../../database/entities/service.entity";
 import { ServicesService } from "./services.service";
@@ -17,7 +16,7 @@ function makeEntity(overrides: Partial<Service> = {}): Service {
   s.id = 1;
   s.name = "Test API";
   s.url = "https://api.example.com";
-  s.type = ServiceType.API_NESTJS;
+  s.type = "api_nestjs";
   s.healthEndpoint = "/health";
   s.logsEndpoint = "/logs";
   s.monitorApiKey = "test-api-key-uuid";
@@ -83,7 +82,7 @@ describe("ServicesService", () => {
     const dto: CreateServiceDto = {
       name: "My NestJS API",
       url: "https://api.example.com",
-      type: ServiceType.API_NESTJS,
+      type: "api_nestjs" as unknown as CreateServiceDto["type"],
     };
 
     it("generates a new api key and secret", async () => {
@@ -226,7 +225,9 @@ describe("ServicesService", () => {
       const result = await service.findAll();
 
       expect(
-        (result.data[0]! as Record<string, unknown>)["monitorSecret"],
+        (result.data[0]! as unknown as Record<string, unknown>)[
+          "monitorSecret"
+        ],
       ).toBeUndefined();
     });
   });
@@ -256,7 +257,7 @@ describe("ServicesService", () => {
       const result = await service.findOne(1);
 
       expect(
-        (result as Record<string, unknown>)["monitorSecret"],
+        (result as unknown as Record<string, unknown>)["monitorSecret"],
       ).toBeUndefined();
     });
   });

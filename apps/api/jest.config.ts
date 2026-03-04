@@ -1,18 +1,28 @@
-import type { Config } from 'jest';
+import type { Config } from "jest";
 
 const config: Config = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
-  rootDir: 'src',
-  testRegex: '.*\\.spec\\.ts$',
+  preset: "ts-jest",
+  testEnvironment: "node",
+  rootDir: "src",
+  testRegex: ".*\\.spec\\.ts$",
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        tsconfig: {
+          paths: {
+            "@/*": ["./src/*"],
+            "@healthpanel/shared": ["../../packages/shared/src/index.ts"],
+          },
+        },
+      },
+    ],
   },
-  collectCoverageFrom: ['**/*.(t|j)s'],
-  coverageDirectory: '../coverage',
+  collectCoverageFrom: ["**/*.(t|j)s"],
+  coverageDirectory: "../coverage",
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/$1',
-    '^@healthpanel/shared$': '<rootDir>/../../packages/shared/src/index.ts',
+    "^@/(.*)$": "<rootDir>/$1",
+    "^@healthpanel/shared$": "<rootDir>/../../../packages/shared/src/index.ts",
   },
 };
 
