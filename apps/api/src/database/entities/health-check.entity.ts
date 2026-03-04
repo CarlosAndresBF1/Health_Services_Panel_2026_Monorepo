@@ -10,27 +10,27 @@ import { Service } from './service.entity';
 @Entity('health_checks')
 export class HealthCheck {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @Column({ name: 'service_id' })
-  serviceId: number;
+  serviceId!: number;
 
   @Column({ type: 'enum', enum: ['up', 'down', 'degraded'] })
-  status: string;
+  status!: string;
 
   @Column({ name: 'response_time_ms', type: 'int', nullable: true })
-  responseTimeMs: number | null;
+  responseTimeMs!: number | null;
 
   @Column({ name: 'status_code', type: 'int', nullable: true })
-  statusCode: number | null;
+  statusCode!: number | null;
 
   @Column({ name: 'error_message', type: 'text', nullable: true })
-  errorMessage: string | null;
+  errorMessage!: string | null;
 
   @Column({ name: 'checked_at', type: 'timestamp with time zone' })
-  checkedAt: Date;
+  checkedAt!: Date;
 
   @ManyToOne(() => Service, (service) => service.healthChecks)
   @JoinColumn({ name: 'service_id' })
-  service: Service;
+  service!: Service;
 }

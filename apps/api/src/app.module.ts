@@ -1,12 +1,13 @@
-import { join } from 'path';
+import { join } from "path";
 
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { TypeOrmModule } from "@nestjs/typeorm";
 
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { AuthModule } from './modules/auth/auth.module';
+import { AppController } from "./app.controller";
+import { AppService } from "./app.service";
+import { AuthModule } from "./modules/auth/auth.module";
+import { ServicesModule } from "./modules/services/services.module";
 
 @Module({
   imports: [
@@ -17,18 +18,19 @@ import { AuthModule } from './modules/auth/auth.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('DB_HOST', 'localhost'),
-        port: configService.get<number>('DB_PORT', 5432),
-        username: configService.get('DB_USERNAME', 'healthpanel'),
-        password: configService.get('DB_PASSWORD', 'healthpanel_secret'),
-        database: configService.get('DB_DATABASE', 'healthpanel'),
-        entities: [join(__dirname, '**/*.entity{.ts,.js}')],
+        type: "postgres",
+        host: configService.get("DB_HOST", "localhost"),
+        port: configService.get<number>("DB_PORT", 5432),
+        username: configService.get("DB_USERNAME", "healthpanel"),
+        password: configService.get("DB_PASSWORD", "healthpanel_secret"),
+        database: configService.get("DB_DATABASE", "healthpanel"),
+        entities: [join(__dirname, "**/*.entity{.ts,.js}")],
         synchronize: false, // NEVER true - use migrations instead
-        logging: configService.get('NODE_ENV') === 'development',
+        logging: configService.get("NODE_ENV") === "development",
       }),
     }),
     AuthModule,
+    ServicesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

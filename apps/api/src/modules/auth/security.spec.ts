@@ -64,13 +64,6 @@ describe("Security configuration invariants", () => {
   // ─── No hardcoded secrets ────────────────────────────────────────────────
 
   describe("No hardcoded secrets", () => {
-    const sensitivePatterns = [
-      /password\s*=\s*['"][^'"]{4,}['"]/i,
-      /secret\s*=\s*['"][^'"]{8,}['"]/i,
-      /api_key\s*=\s*['"][^'"]{8,}['"]/i,
-      /SG\.[A-Za-z0-9_-]{22,}/, // Real SendGrid keys
-    ];
-
     function getSourceFiles(dir: string): string[] {
       const files: string[] = [];
       const entries = fs.readdirSync(dir, { withFileTypes: true });

@@ -12,51 +12,51 @@ import { Incident } from './incident.entity';
 @Entity('services')
 export class Service {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @Column({ length: 255 })
-  name: string;
+  name!: string;
 
   @Column({ length: 2048 })
-  url: string;
+  url!: string;
 
   @Column({ type: 'enum', enum: ['api_nestjs', 'api_laravel', 'web_nextjs'] })
-  type: string;
+  type!: string;
 
   @Column({ name: 'health_endpoint', length: 255, default: '/health' })
-  healthEndpoint: string;
+  healthEndpoint!: string;
 
   @Column({ name: 'logs_endpoint', length: 255, default: '/logs' })
-  logsEndpoint: string;
+  logsEndpoint!: string;
 
   @Column({ name: 'monitor_api_key', length: 255 })
-  monitorApiKey: string;
+  monitorApiKey!: string;
 
   @Column({ name: 'monitor_secret', type: 'text' })
-  monitorSecret: string; // AES-256-GCM encrypted
+  monitorSecret!: string; // AES-256-GCM encrypted
 
   @Column({ name: 'check_interval_seconds', default: 60 })
-  checkIntervalSeconds: number;
+  checkIntervalSeconds!: number;
 
   @Column({ name: 'is_active', default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @Column({ name: 'alerts_enabled', default: true })
-  alertsEnabled: boolean;
+  alertsEnabled!: boolean;
 
   @Column({ name: 'deleted_at', nullable: true, type: 'timestamp with time zone' })
-  deletedAt: Date | null; // soft delete
+  deletedAt!: Date | null; // soft delete
 
   @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   // Relations
   @OneToMany(() => HealthCheck, (hc) => hc.service)
-  healthChecks: HealthCheck[];
+  healthChecks!: HealthCheck[];
 
   @OneToMany(() => Incident, (inc) => inc.service)
-  incidents: Incident[];
+  incidents!: Incident[];
 }

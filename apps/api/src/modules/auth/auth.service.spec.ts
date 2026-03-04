@@ -293,7 +293,7 @@ describe("AuthService", () => {
       expect(result.message).toBe("Password changed successfully");
       expect(userRepository.save).toHaveBeenCalled();
       // Verify new password is stored as bcrypt hash
-      const savedUser = userRepository.save.mock.calls[0][0] as User;
+      const savedUser = userRepository.save.mock.calls[0]![0] as User;
       expect(savedUser.password).toMatch(/^\$2[aby]\$\d{2}\$/);
       expect(savedUser.password).not.toBe("NewPassword1!");
     });
@@ -369,7 +369,7 @@ describe("AuthService", () => {
 
       await service.forgotPassword("admin@example.com");
 
-      const createdArg = passwordResetTokenRepository.create.mock.calls[0][0];
+      const createdArg = passwordResetTokenRepository.create.mock.calls[0]![0];
       const expiry = (createdArg as { expiresAt: Date }).expiresAt;
       const diffMs = expiry.getTime() - before.getTime();
 
@@ -516,9 +516,9 @@ describe("AuthService", () => {
         confirmPassword: "AnotherPassword1!",
       });
 
-      const savedUser = userRepository.save.mock.calls[0][0] as User;
+      const savedUser = userRepository.save.mock.calls[0]![0] as User;
       // Extract cost factor from bcrypt hash ($2b$12$...)
-      const costFactor = parseInt(savedUser.password.split("$")[2], 10);
+      const costFactor = parseInt(savedUser.password.split("$")[2] ?? "0", 10);
       expect(costFactor).toBeGreaterThanOrEqual(12);
     });
   });

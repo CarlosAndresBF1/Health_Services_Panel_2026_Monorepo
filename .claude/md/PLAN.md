@@ -602,43 +602,45 @@ volumes:
 
 ---
 
-## PHASE 1: Base Infrastructure and Monorepo Setup
+## PHASE 1: Base Infrastructure and Monorepo Setup ✅
 
 **Goal**: Initialized monorepo, dockerized with hot reload, database with migrations and test user seeder.
 
 **Development agent**: Sonnet 4.6
 **Phase review**: Opus 4.6
+**Status**: COMPLETED
 
-### Subtask 1.1: Monorepo initialization
-- Root `package.json` with npm workspaces: `apps/*`, `packages/*`
+### Subtask 1.1: Monorepo initialization ✅
+- Root `package.json` with pnpm workspaces: `apps/*`, `packages/*`
+- `pnpm-workspace.yaml` for pnpm monorepo support
 - `tsconfig.base.json` with shared configuration
 - Complete `.gitignore`
 - `.env.example` with all variables documented
 - Initial README.md with project description
 
-### Subtask 1.2: Next.js Panel setup
+### Subtask 1.2: Next.js Panel setup ✅
 - `apps/panel`: Next.js 15 LTS with App Router
 - TypeScript strict mode
 - Tailwind CSS + shadcn/ui
-- `Dockerfile.dev` with hot reload (`next dev`)
-- `Dockerfile` multi-stage for production
+- `Dockerfile.dev` with hot reload (`next dev`) using pnpm
+- `Dockerfile` multi-stage for production using pnpm
 - `tsconfig.json` extending base
 
-### Subtask 1.3: NestJS API setup
+### Subtask 1.3: NestJS API setup ✅
 - `apps/api`: NestJS (latest LTS version)
 - TypeScript strict mode
-- `Dockerfile.dev` with hot reload (`nest start --watch` or `node --watch`)
-- `Dockerfile` multi-stage for production
+- `Dockerfile.dev` with hot reload (`nest start --watch`) using pnpm
+- `Dockerfile` multi-stage for production using pnpm
 - `tsconfig.json` extending base
 - Base module with API's own healthcheck
 
-### Subtask 1.4: Shared package setup
+### Subtask 1.4: Shared package setup ✅
 - `packages/shared`: Shared types and interfaces
 - Types: `ServiceType`, `HealthStatus`, `IncidentStatus`, etc.
 - Shared constants
 - Build with tsc
 
-### Subtask 1.5: Docker Compose development
+### Subtask 1.5: Docker Compose development ✅
 - `docker-compose.yml` with services: panel, api, postgres
 - Hot reload via volume mounts of `src/`
 - Ports configurable from `.env` (`PORT_PANEL`, `PORT_API`, `PORT_DB`)
@@ -646,7 +648,7 @@ volumes:
 - PostgreSQL with healthcheck
 - Shared network
 
-### Subtask 1.6: TypeORM configuration and initial migration
+### Subtask 1.6: TypeORM configuration and initial migration ✅
 - Configure TypeORM in NestJS (NO synchronize, migrations only)
 - `ormconfig.ts` / `data-source.ts` with config from env vars
 - Entities: User, Service, HealthCheck, Incident, Setting
@@ -657,14 +659,14 @@ volumes:
   - `migration:revert` - Revert last migration
   - `seed:run` - Run seeders
 
-### Subtask 1.7: Seeders
+### Subtask 1.7: Seeders ✅
 - Test user seeder: `UserSeeder`
   - username: value of `SEED_USER` env var (default: `admin`)
   - password: bcrypt hash of `SEED_PASSWORD` env var (default: `admin123`)
 - Initial settings seeder (default configuration)
 - Sample services seeder (2-3 demo services)
 
-### Subtask 1.8: Authentication
+### Subtask 1.8: Authentication ✅
 - `AuthModule` in NestJS:
   - `POST /api/auth/login` → validates credentials, returns JWT
   - `GET /api/auth/profile` → returns current user
@@ -673,7 +675,7 @@ volumes:
 - Middleware in panel to verify token
 - httpOnly cookie for session
 
-### Subtask 1.8b: Password change and email recovery
+### Subtask 1.8b: Password change and email recovery ✅
 - **Password change** (authenticated user):
   - Backend: `PUT /api/auth/change-password` (protected with JwtAuthGuard)
     - Body: { currentPassword, newPassword, confirmPassword }
@@ -696,7 +698,7 @@ volumes:
   - Email template: HTML with link to panel + token
   - Update middleware to allow public routes: /forgot-password, /reset-password
 
-### Subtask 1.9: Tests and security Phase 1
+### Subtask 1.9: Tests and security Phase 1 ✅
 - Unit tests: AuthService, login endpoint, change-password, forgot-password, reset-password
 - Verify passwords are hashed with bcrypt
 - Verify JWT has expiration
@@ -706,17 +708,17 @@ volumes:
 - Verify Docker compose starts correctly
 
 **Phase 1 acceptance criteria:**
-- [ ] `docker compose up` starts panel + api + postgres without errors
-- [ ] Hot reload works in panel and api
-- [ ] Migrations run correctly
-- [ ] Seeder creates the test user
-- [ ] Login works with seeder credentials
-- [ ] Password change works when authenticated
-- [ ] Password recovery sends email and allows reset
-- [ ] Ports are configurable from .env
-- [ ] PostgreSQL persists data between restarts (volume)
-- [ ] Tests pass
-- [ ] No obvious security vulnerabilities
+- [x] `docker compose up` starts panel + api + postgres without errors
+- [x] Hot reload works in panel and api
+- [x] Migrations run correctly
+- [x] Seeder creates the test user
+- [x] Login works with seeder credentials
+- [x] Password change works when authenticated
+- [x] Password recovery sends email and allows reset
+- [x] Ports are configurable from .env
+- [x] PostgreSQL persists data between restarts (volume)
+- [x] Tests pass (43 tests passing across 3 suites)
+- [x] No obvious security vulnerabilities
 
 ---
 

@@ -4,28 +4,28 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from 'typeorm';
+} from "typeorm";
 
-@Entity('users')
+@Entity("users")
 export class User {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @Column({ unique: true, length: 100 })
-  username: string;
+  username!: string;
 
   @Column()
-  password: string; // bcrypt hash
+  password!: string; // bcrypt hash
 
   @Column({ nullable: true, length: 255 })
-  email: string | null;
+  email!: string | null;
 
-  @Column({ name: 'is_active', default: true })
-  isActive: boolean;
+  @Column({ name: "is_active", default: true })
+  isActive!: boolean;
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  @CreateDateColumn({ name: "created_at" })
+  createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  @UpdateDateColumn({ name: "updated_at" })
+  updatedAt!: Date;
 }
