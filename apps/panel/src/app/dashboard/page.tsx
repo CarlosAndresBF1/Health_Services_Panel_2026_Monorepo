@@ -83,10 +83,8 @@ function ServiceCard({ service, latestCheck }: { service: ServiceRecord; latestC
           </div>
         </div>
 
-        {/* Preview thumbnail (web services) */}
-        {service.type === 'web_nextjs' && (
-          <ServicePreviewThumb serviceId={service.id} />
-        )}
+        {/* Preview thumbnail */}
+        <ServicePreviewThumb serviceId={service.id} />
 
         {/* Resource bars */}
         {(() => {

@@ -309,10 +309,8 @@ function OverviewTab({
         );
       })()}
 
-      {/* Daily preview screenshot (web services only) */}
-      {service.type === 'web_nextjs' && (
-        <ScreenshotPreview serviceId={service.id} />
-      )}
+      {/* Daily preview screenshot */}
+      <ScreenshotPreview serviceId={service.id} />
     </div>
   );
 }

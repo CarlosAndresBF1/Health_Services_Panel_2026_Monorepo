@@ -36,7 +36,6 @@ export class ScreenshotSchedulerService {
       where: {
         isActive: true,
         deletedAt: IsNull(),
-        type: ServiceType.WEB_NEXTJS,
       },
     });
 
