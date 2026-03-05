@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboard-shell';
-import { servicesApi, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, INTERVAL_OPTIONS, type ServiceRecord, type CreateServicePayload } from '@/lib/services-api';
+import { servicesApi, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, INTERVAL_OPTIONS, type ServiceRecord } from '@/lib/services-api';
 import { healthApi, type HealthCheckRecord, type IncidentRecord, type PaginatedHealthChecks, type PaginatedIncidents, screenshotUrl, servicePreviewUrl, captureServiceScreenshot } from '@/lib/health-api';
 import { useMonitorSocket, type WsHealthUpdate, type WsIncidentNew, type WsIncidentResolved, type WsResourceWarning } from '@/lib/use-monitor-socket';
 import { LogViewer } from '@/components/log-viewer';
@@ -995,16 +995,16 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
   const handleEditSave = useCallback(async (form: EditFormData) => {
     setEditBusy(true);
     try {
-      const payload: Partial<CreateServicePayload> = {
+      const payload: Record<string, string | number | boolean> = {
         name: form.name,
         url: form.url,
         type: form.type,
         checkIntervalSeconds: form.checkIntervalSeconds,
         isActive: form.isActive,
         alertsEnabled: form.alertsEnabled,
-        ...(form.healthEndpoint ? { healthEndpoint: form.healthEndpoint } : {}),
-        ...(form.logsEndpoint ? { logsEndpoint: form.logsEndpoint } : {}),
       };
+      if (form.healthEndpoint) payload.healthEndpoint = form.healthEndpoint;
+      if (form.logsEndpoint) payload.logsEndpoint = form.logsEndpoint;
       const updated = await servicesApi.update(serviceId, payload);
       setService(updated);
       setEditModalOpen(false);
