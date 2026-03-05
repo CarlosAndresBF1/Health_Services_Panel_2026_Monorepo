@@ -1,16 +1,16 @@
-const BASE_URL = '/backend';
-const COOKIE_NAME = 'healthpanel-token';
+const BASE_URL = "/backend";
+const COOKIE_NAME = "healthpanel-token";
 
 function getTokenFromCookie(): string | null {
-  if (typeof document === 'undefined') {
+  if (typeof document === "undefined") {
     return null;
   }
 
   const match = document.cookie
-    .split('; ')
+    .split("; ")
     .find((row) => row.startsWith(`${COOKIE_NAME}=`));
 
-  return match ? match.split('=')[1] ?? null : null;
+  return match ? (match.split("=")[1] ?? null) : null;
 }
 
 interface RequestOptions {
@@ -27,12 +27,12 @@ async function request<T>(
   const token = options.skipAuth ? null : getTokenFromCookie();
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     ...options.headers,
   };
 
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers["Authorization"] = `Bearer ${token}`;
   }
 
   const response = await fetch(`${BASE_URL}${path}`, {
@@ -42,10 +42,10 @@ async function request<T>(
   });
 
   if (response.status === 401) {
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
     }
-    throw new Error('Unauthorized');
+    throw new Error("Unauthorized");
   }
 
   if (!response.ok) {
@@ -59,8 +59,8 @@ async function request<T>(
     throw new Error(errorMessage);
   }
 
-  const contentType = response.headers.get('content-type');
-  if (contentType && contentType.includes('application/json')) {
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
     return response.json() as Promise<T>;
   }
 
@@ -69,22 +69,22 @@ async function request<T>(
 
 export const apiClient = {
   get<T>(path: string, options?: RequestOptions): Promise<T> {
-    return request<T>('GET', path, undefined, options);
+    return request<T>("GET", path, undefined, options);
   },
 
   post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
-    return request<T>('POST', path, body, options);
+    return request<T>("POST", path, body, options);
   },
 
   put<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
-    return request<T>('PUT', path, body, options);
+    return request<T>("PUT", path, body, options);
   },
 
   patch<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
-    return request<T>('PATCH', path, body, options);
+    return request<T>("PATCH", path, body, options);
   },
 
   delete<T>(path: string, options?: RequestOptions): Promise<T> {
-    return request<T>('DELETE', path, undefined, options);
+    return request<T>("DELETE", path, undefined, options);
   },
 };
