@@ -43,8 +43,8 @@ services:
       dockerfile: apps/api/Dockerfile
     container_name: healthpanel_api
     restart: always
-    ports:
-      - "${PORT_API:-3045}:3000"
+    expose:
+      - "3000"
     volumes:
       - screenshots:/app/screenshots
     environment:
@@ -106,8 +106,10 @@ services:
     ports:
       - "${PORT_PANEL:-3044}:3000"
     environment:
-      NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:3045}
+      # WebSocket must be a public URL (Next.js rewrites don't support WS upgrades)
       NEXT_PUBLIC_WS_URL: ${WS_URL:-ws://localhost:3045}
+      # Internal Docker network URL for Next.js rewrites (/backend/:path* → api)
+      API_INTERNAL_URL: http://api:3000
     depends_on:
       api:
         condition: service_healthy

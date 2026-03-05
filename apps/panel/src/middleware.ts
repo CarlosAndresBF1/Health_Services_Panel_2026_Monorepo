@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const COOKIE_NAME = 'healthpanel-token';
 
 const PUBLIC_PATHS = ['/login'];
-const EXCLUDED_PREFIXES = ['/api/auth/', '/_next/', '/favicon.ico'];
+const EXCLUDED_PREFIXES = ['/api/auth/', '/backend/', '/_next/', '/favicon.ico'];
 
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) {

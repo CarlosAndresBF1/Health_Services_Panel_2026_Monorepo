@@ -6,7 +6,7 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 # Copy root package files for workspace resolution
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* tsconfig.base.json ./
 COPY packages/ ./packages/
 
 # Copy api package files
@@ -15,7 +15,12 @@ COPY apps/api/package.json ./apps/api/
 # Install all dependencies (including workspaces)
 RUN pnpm install
 
+# Build shared package so @healthpanel/shared resolves via node_modules → dist/index.js
+WORKDIR /app/packages/shared
+RUN pnpm build
+
 # Copy api source
+WORKDIR /app
 COPY apps/api/ ./apps/api/
 
 WORKDIR /app/apps/api

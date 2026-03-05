@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const BASE_URL = '/backend';
 const COOKIE_NAME = 'healthpanel-token';
 
 function getTokenFromCookie(): string | null {

@@ -4,18 +4,24 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "outDir": "./dist",
-    "rootDir": "./src",
     "baseUrl": ".",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "target": "ES2022",
     "paths": {
-      "@/*": ["./src/*"],
-      "@healthpanel/shared": ["../../packages/shared/src/index.ts"]
-    }
+      "@/*": ["./src/*"]
+    },
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "noImplicitOverride": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test"]

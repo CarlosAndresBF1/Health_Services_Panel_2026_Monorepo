@@ -3,6 +3,27 @@ import * as crypto from 'crypto';
 import { Service } from '../entities/service.entity';
 import { Seeder } from './seeder.interface';
 
+/**
+ * Encrypt a plaintext using AES-256-GCM (same algorithm as CryptoService).
+ * Returns `iv:authTag:ciphertext` (all hex).
+ */
+function encryptSecret(plaintext: string): string {
+  const rawKey = process.env['ENCRYPTION_KEY'] ?? '';
+  let key: Buffer;
+  if (/^[0-9a-fA-F]{64}$/.test(rawKey)) {
+    key = Buffer.from(rawKey, 'hex');
+  } else if (rawKey.length >= 32) {
+    key = Buffer.from(rawKey.slice(0, 32), 'utf-8');
+  } else {
+    throw new Error('ENCRYPTION_KEY must be at least 32 characters');
+  }
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted.toString('hex')}`;
+}
+
 export class DemoServicesSeeder implements Seeder {
   async run(dataSource: DataSource): Promise<void> {
     const serviceRepository = dataSource.getRepository(Service);
@@ -22,7 +43,7 @@ export class DemoServicesSeeder implements Seeder {
         healthEndpoint: '/posts/1',
         logsEndpoint: '/posts',
         monitorApiKey: crypto.randomUUID(),
-        monitorSecret: crypto.randomBytes(32).toString('hex'),
+        monitorSecret: encryptSecret(crypto.randomBytes(32).toString('hex')),
         checkIntervalSeconds: 60,
         isActive: true,
         alertsEnabled: true,
@@ -35,7 +56,7 @@ export class DemoServicesSeeder implements Seeder {
         healthEndpoint: '/get',
         logsEndpoint: '/get',
         monitorApiKey: crypto.randomUUID(),
-        monitorSecret: crypto.randomBytes(32).toString('hex'),
+        monitorSecret: encryptSecret(crypto.randomBytes(32).toString('hex')),
         checkIntervalSeconds: 60,
         isActive: true,
         alertsEnabled: true,
@@ -48,7 +69,7 @@ export class DemoServicesSeeder implements Seeder {
         healthEndpoint: '/',
         logsEndpoint: '/',
         monitorApiKey: crypto.randomUUID(),
-        monitorSecret: crypto.randomBytes(32).toString('hex'),
+        monitorSecret: encryptSecret(crypto.randomBytes(32).toString('hex')),
         checkIntervalSeconds: 60,
         isActive: true,
         alertsEnabled: true,

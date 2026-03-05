@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const COOKIE_NAME = 'healthpanel-token';
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+// Use internal Docker URL for server-side fetches; fallback to public URL for local dev
+const API_URL = process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3045';
 
 export async function POST(request: NextRequest) {
   try {

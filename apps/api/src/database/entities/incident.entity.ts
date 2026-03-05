@@ -21,7 +21,7 @@ export class Incident {
   @Column({ name: 'resolved_at', type: 'timestamp with time zone', nullable: true })
   resolvedAt!: Date | null;
 
-  @Column({ name: 'screenshot_path', length: 500, nullable: true })
+  @Column({ name: 'screenshot_path', type: 'varchar', length: 500, nullable: true })
   screenshotPath!: string | null;
 
   @Column({ name: 'last_logs_snapshot', type: 'text', nullable: true })

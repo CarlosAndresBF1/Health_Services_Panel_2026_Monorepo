@@ -84,9 +84,10 @@ services:
       - ./apps/panel/src:/app/apps/panel/src
       - ./packages/shared/src:/app/packages/shared/src
     environment:
-      # URLs are resolved from the host browser, so use host-mapped ports
-      NEXT_PUBLIC_API_URL: http://localhost:${PORT_API:-3045}
+      # WebSocket must be a public URL (Next.js rewrites don't support WS upgrades)
       NEXT_PUBLIC_WS_URL: ws://localhost:${PORT_API:-3045}
+      # Internal Docker network URL for server-side fetches (Next.js API routes + rewrites)
+      API_INTERNAL_URL: http://api:3000
     depends_on:
       - api
     networks:

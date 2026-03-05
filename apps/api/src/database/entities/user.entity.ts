@@ -17,7 +17,7 @@ export class User {
   @Column()
   password!: string; // bcrypt hash
 
-  @Column({ nullable: true, length: 255 })
+  @Column({ type: 'varchar', nullable: true, length: 255 })
   email!: string | null;
 
   @Column({ name: "is_active", default: true })
