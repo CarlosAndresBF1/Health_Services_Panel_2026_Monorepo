@@ -67,8 +67,8 @@ export function Sidebar() {
         className="flex h-16 items-center gap-3 border-b px-5"
         style={{ borderColor: 'rgba(255,255,255,0.08)' }}
       >
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-status-up animate-pulse" />
+        <div className="flex items-center gap-2.5">
+          <img src="/logo.svg" alt="HealthPanel" className="h-8 w-8" />
           <span className="text-lg font-bold tracking-tight">
             <span style={{ color: '#C8A951' }}>Health</span>
             <span className="text-text-primary">Panel</span>
