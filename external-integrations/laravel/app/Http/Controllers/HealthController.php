@@ -5,11 +5,53 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * HEALTHPANEL RESPONSE CONTRACT — DO NOT CHANGE FIELD NAMES OR TYPES
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * The HealthPanel dashboard expects EXACTLY this JSON structure from /health:
+ *
+ * {
+ *   "status": "ok" | "error",
+ *   "uptime": <number>,
+ *   "timestamp": "<ISO 8601>",
+ *   "disk": {
+ *     "total_gb":     <number>,   ← MUST be snake_case
+ *     "used_gb":      <number>,
+ *     "free_gb":      <number>,
+ *     "used_percent": <number>    ← 0-100, one decimal (e.g. 85.3)
+ *   },
+ *   "memory": {
+ *     "total_mb":     <number>,   ← System RAM from /proc/meminfo
+ *     "used_mb":      <number>,   ← NOT just PHP memory_get_usage()
+ *     "free_mb":      <number>,
+ *     "used_percent": <number>    ← 0-100, one decimal
+ *   },
+ *   "db": {                       ← MUST be an object, NOT a string
+ *     "connected": <boolean>,     ← true/false, NOT "connected"/"disconnected"
+ *     "type":      <string>       ← Optional: "pgsql", "mysql", etc.
+ *   }
+ * }
+ *
+ * COMMON MISTAKES TO AVOID:
+ * - Returning db as a string "connected" instead of ["connected" => true]
+ * - Using only memory_get_usage() (PHP process ~50MB) instead of system RAM
+ * - Omitting total_mb/free_mb/used_percent from memory
+ * - Omitting the db field entirely — always include it
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
 /**
  * HealthPanel Health Controller
  *
  * GET /health — Returns system status, uptime, database connectivity, and memory info.
  * Protected by MonitorAuthMiddleware (HMAC-SHA256 authentication).
+ *
+ * IMPORTANT: See response contract comment above.
+ * All field names MUST use snake_case. db MUST be an object with 'connected' => boolean.
+ * Memory MUST report system RAM (via /proc/meminfo on Linux), NOT just PHP process memory.
  */
 class HealthController extends Controller
 {

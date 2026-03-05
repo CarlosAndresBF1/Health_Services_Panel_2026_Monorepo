@@ -3,6 +3,44 @@ import { execSync } from "child_process";
 import * as os from "os";
 import { MonitorGuard } from "./monitor.guard";
 
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * HEALTHPANEL RESPONSE CONTRACT — DO NOT CHANGE FIELD NAMES OR TYPES
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * The HealthPanel dashboard expects EXACTLY this JSON structure from /health:
+ *
+ * {
+ *   "status": "ok" | "error",
+ *   "uptime": <number>,
+ *   "timestamp": "<ISO 8601>",
+ *   "disk": {
+ *     "total_gb":     <number>,   ← MUST be snake_case, NOT camelCase
+ *     "used_gb":      <number>,
+ *     "free_gb":      <number>,
+ *     "used_percent": <number>    ← 0-100, one decimal (e.g. 85.3)
+ *   },
+ *   "memory": {
+ *     "total_mb":     <number>,   ← System RAM, NOT Node.js heap
+ *     "used_mb":      <number>,   ← Use os.totalmem()/os.freemem()
+ *     "free_mb":      <number>,   ← Do NOT use process.memoryUsage()
+ *     "used_percent": <number>    ← 0-100, one decimal
+ *   },
+ *   "db": {                       ← MUST be an object, NOT a string
+ *     "connected": <boolean>,     ← true/false, NOT "connected"/"disconnected"
+ *     "type":      <string>       ← Optional: "postgres", "mysql", etc.
+ *   }
+ * }
+ *
+ * COMMON MISTAKES TO AVOID:
+ * - Using camelCase (totalGb, usedPercent) instead of snake_case (total_gb, used_percent)
+ * - Using process.memoryUsage() (Node.js heap only ~100MB) instead of os module (system RAM)
+ * - Returning db as a string "connected" instead of { connected: true }
+ * - Omitting the db field entirely — always include it even if { connected: false }
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
 interface DiskInfo {
   total_gb: number;
   free_gb: number;
@@ -30,11 +68,12 @@ interface HealthResponse {
 /**
  * Health endpoint for HealthPanel monitoring.
  *
- * GET /health — Returns system status, uptime, and memory info.
+ * GET /health — Returns system status, uptime, disk, memory, and DB info.
  * Protected by MonitorGuard (HMAC-SHA256 authentication).
  *
- * To add database connectivity checks, inject your DB connection
- * and extend the response (see README).
+ * IMPORTANT: See response contract comment at the top of this file.
+ * All field names MUST use snake_case. db MUST be an object with `connected: boolean`.
+ * Memory MUST report system RAM (os.totalmem), NOT Node.js heap (process.memoryUsage).
  */
 @Controller()
 @UseGuards(MonitorGuard)
