@@ -145,18 +145,148 @@ HealthPanel expects the `/health` endpoint to return JSON with these fields:
 
 > **Note:** `disk` and `memory` use **snake_case** field names. `db` must be an object with `connected: boolean`.
 
-## Customizing the Log File Path
+## Log File Configuration
 
-By default, logs are read from `logs/app.log`. You can change this:
+### Default behavior
 
-- **Environment variable**: Set `MONITOR_LOG_FILE=path/to/your.log`
-- **Absolute path**: `MONITOR_LOG_FILE=/var/log/myapp/production.log`
-- **Relative path**: `MONITOR_LOG_FILE=storage/logs/app.log` (relative to project root)
+By default, HealthPanel reads from `logs/app.log`. If this file doesn't exist, it automatically searches for daily rotated logs.
+
+### Log rotation support
+
+HealthPanel can auto-detect rotated log files:
+
+#### Option 1: Auto-detect daily rotation
+
+If your logs use daily rotation (creates files like `app-2026-03-05.log`):
+
+```env
+# Auto-detect the most recent daily log file
+MONITOR_LOG_ROTATION=daily
+```
+
+#### Option 2: Glob pattern
+
+Specify a pattern to match multiple files (selects the most recently modified):
+
+```env
+# Pattern with wildcard — finds latest by modification time
+MONITOR_LOG_FILE=logs/app-*.log
+```
+
+#### Option 3: Absolute path
+
+Specify an exact file path:
+
+```env
+# Absolute path to a specific log file
+MONITOR_LOG_FILE=/var/www/myapp/logs/production-2026-03-05.log
+```
+
+### Configuring a single log file
+
+If you prefer a single log file, configure your logger (e.g., Winston, Pino):
+
+```typescript
+// Using Winston
+import { WinstonModule } from 'nest-winston';
+import * as winston from 'winston';
+
+WinstonModule.forRoot({
+  transports: [
+    new winston.transports.File({
+      filename: 'logs/app.log',
+      // No daily rotation — single file
+    }),
+  ],
+});
+```
+
+```typescript
+// Using Pino
+import { LoggerModule } from 'nestjs-pino';
+
+LoggerModule.forRoot({
+  pinoHttp: {
+    transport: {
+      target: 'pino/file',
+      options: { destination: './logs/app.log' },
+    },
+  },
+});
+```
+
+### Dependencies for glob patterns
+
+If using glob patterns (`*`), ensure `glob` is installed:
+
+```bash
+npm install glob
+# or
+pnpm add glob
+```
+
+---
+
+## Adapting to Your NestJS Version
+
+### NestJS 10+ / 11+
+
+No changes needed — the provided code is compatible.
+
+### NestJS 9.x
+
+The code is compatible. If using TypeORM, ensure you have `@nestjs/typeorm@9.x`.
+
+### NestJS 8.x
+
+For NestJS 8.x, update the guard to use the older `ExecutionContext` pattern:
+
+```typescript
+// monitor.guard.ts - NestJS 8.x compatible
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Request } from 'express';
+import { createHmac, timingSafeEqual } from 'crypto';
+
+@Injectable()
+export class MonitorGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<Request>();
+    // ... rest of validation logic
+  }
+}
+```
+
+### Environment variable loading
+
+**NestJS 10+** (with @nestjs/config):
+```typescript
+import { ConfigModule } from '@nestjs/config';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    HealthPanelModule,
+  ],
+})
+export class AppModule {}
+```
+
+**NestJS 8-9** (with dotenv):
+```typescript
+// main.ts
+import 'dotenv/config';
+```
 
 ---
 
 ## Requirements
 
-- NestJS 9+ (works with NestJS 10/11)
-- Node.js 18+ (for `crypto.timingSafeEqual`)
+- NestJS 8+ (tested with NestJS 8, 9, 10, 11)
+- Node.js 16+ (18+ recommended for `crypto.timingSafeEqual`)
 - Express adapter (default NestJS setup)
+- Optional: `glob` package for pattern matching

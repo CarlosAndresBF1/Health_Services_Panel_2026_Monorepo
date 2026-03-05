@@ -53,6 +53,9 @@ MONITOR_SECRET=your-secret-from-healthpanel
 
 # Optional — path to log file (default: storage/logs/laravel.log)
 MONITOR_LOG_FILE=storage/logs/laravel.log
+
+# Optional — log rotation mode (see Log Rotation section below)
+MONITOR_LOG_ROTATION=daily
 ```
 
 ### 4. Done!
@@ -145,7 +148,142 @@ HealthPanel expects the `/health` endpoint to return JSON with these fields:
 
 ---
 
+## Log File Configuration
+
+### Default behavior
+
+By default, HealthPanel reads from `storage/logs/laravel.log`. If this file doesn't exist, it automatically searches for daily rotated logs.
+
+### Log rotation support
+
+Laravel supports multiple log channels. HealthPanel can auto-detect rotated log files:
+
+#### Option 1: Auto-detect daily rotation
+
+If your Laravel uses `LOG_CHANNEL=daily` (creates files like `laravel-2026-03-05.log`):
+
+```env
+# Auto-detect the most recent daily log file
+MONITOR_LOG_ROTATION=daily
+```
+
+#### Option 2: Glob pattern
+
+Specify a pattern to match multiple files (selects the most recently modified):
+
+```env
+# Pattern with wildcard — finds latest by modification time
+MONITOR_LOG_FILE=storage/logs/laravel-*.log
+```
+
+#### Option 3: Absolute path
+
+Specify an exact file path:
+
+```env
+# Absolute path to a specific log file
+MONITOR_LOG_FILE=/var/www/api-ejecucion-sin-limites.sinlimite2022.com/storage/logs/laravel-2026-03-05.log
+```
+
+### Configuring Laravel to use a single log file
+
+If you prefer a single log file instead of daily rotation, update your `config/logging.php`:
+
+```php
+// config/logging.php
+'channels' => [
+    'single' => [
+        'driver' => 'single',
+        'path' => storage_path('logs/laravel.log'),
+        'level' => env('LOG_LEVEL', 'debug'),
+    ],
+],
+```
+
+Then set in `.env`:
+
+```env
+LOG_CHANNEL=single
+```
+
+---
+
+## Adapting to Your Laravel Version
+
+### Laravel 11+
+
+```php
+// bootstrap/app.php
+->withRouting(
+    web: __DIR__.'/../routes/web.php',
+    api: __DIR__.'/../routes/api.php',
+    health: __DIR__.'/../routes/healthpanel.php',
+)
+```
+
+### Laravel 10.x
+
+```php
+// app/Providers/RouteServiceProvider.php
+public function boot(): void
+{
+    $this->routes(function () {
+        Route::middleware('api')
+            ->group(base_path('routes/healthpanel.php'));
+    });
+}
+```
+
+### Laravel 9.x
+
+```php
+// app/Providers/RouteServiceProvider.php
+public function boot()
+{
+    $this->routes(function () {
+        Route::prefix('api')
+            ->middleware('api')
+            ->namespace($this->namespace)
+            ->group(base_path('routes/healthpanel.php'));
+    });
+}
+```
+
+### Laravel 8.x
+
+In Laravel 8, controllers don't use automatic namespace resolution:
+
+```php
+// routes/healthpanel.php
+use App\Http\Controllers\HealthController;
+use App\Http\Controllers\LogsController;
+
+Route::get('/health', HealthController::class);
+Route::get('/logs', LogsController::class);
+```
+
+### Middleware registration by version
+
+**Laravel 11+** (bootstrap/app.php):
+```php
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->alias([
+        'monitor.auth' => \App\Http\Middleware\MonitorAuthMiddleware::class,
+    ]);
+})
+```
+
+**Laravel 10 and below** (app/Http/Kernel.php):
+```php
+protected $middlewareAliases = [
+    'monitor.auth' => \App\Http\Middleware\MonitorAuthMiddleware::class,
+    // ...
+];
+```
+
+---
+
 ## Requirements
 
-- Laravel 10+ (tested with Laravel 10, 11)
-- PHP 8.1+
+- Laravel 8+ (tested with Laravel 8, 9, 10, 11)
+- PHP 8.0+ (PHP 8.1+ recommended)

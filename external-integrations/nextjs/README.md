@@ -158,7 +158,215 @@ export function middleware(request: NextRequest) {
 
 ---
 
+## Log File Configuration
+
+### Default behavior
+
+By default, HealthPanel reads from `logs/app.log`. If this file doesn't exist, it automatically searches for daily rotated logs.
+
+### Log rotation support
+
+HealthPanel can auto-detect rotated log files:
+
+#### Option 1: Auto-detect daily rotation
+
+If your logs use daily rotation (creates files like `app-2026-03-05.log`):
+
+```env
+# Auto-detect the most recent daily log file
+MONITOR_LOG_ROTATION=daily
+```
+
+#### Option 2: Glob pattern
+
+Specify a pattern to match multiple files (selects the most recently modified):
+
+```env
+# Pattern with wildcard — finds latest by modification time
+MONITOR_LOG_FILE=logs/app-*.log
+```
+
+#### Option 3: Absolute path
+
+Specify an exact file path:
+
+```env
+# Absolute path to a specific log file
+MONITOR_LOG_FILE=/var/www/myapp/.next/logs/production-2026-03-05.log
+```
+
+### Setting up logging in Next.js
+
+Next.js doesn't have built-in file logging. Here's how to add it:
+
+#### Using Pino (recommended)
+
+```bash
+npm install pino pino-pretty
+```
+
+```typescript
+// lib/logger.ts
+import pino from 'pino';
+import { createWriteStream, mkdirSync, existsSync } from 'fs';
+import { join } from 'path';
+
+const logsDir = join(process.cwd(), 'logs');
+if (!existsSync(logsDir)) {
+  mkdirSync(logsDir, { recursive: true });
+}
+
+// Single file (no rotation)
+export const logger = pino(
+  {},
+  createWriteStream(join(logsDir, 'app.log'), { flags: 'a' })
+);
+
+// With daily rotation
+import { createStream } from 'rotating-file-stream';
+
+const rotatingStream = createStream('app.log', {
+  size: '10M',
+  interval: '1d',
+  path: logsDir,
+  compress: 'gzip',
+});
+
+export const loggerWithRotation = pino({}, rotatingStream);
+```
+
+#### Using Winston
+
+```bash
+npm install winston winston-daily-rotate-file
+```
+
+```typescript
+// lib/logger.ts
+import winston from 'winston';
+import 'winston-daily-rotate-file';
+
+// Single file
+export const logger = winston.createLogger({
+  transports: [
+    new winston.transports.File({ filename: 'logs/app.log' }),
+  ],
+});
+
+// With daily rotation
+export const loggerWithRotation = winston.createLogger({
+  transports: [
+    new winston.transports.DailyRotateFile({
+      filename: 'logs/app-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxFiles: '14d',
+    }),
+  ],
+});
+```
+
+---
+
+## Adapting to Your Next.js Version
+
+### Next.js 14+ / 15+
+
+No changes needed — the provided code uses the latest App Router conventions.
+
+### Next.js 13.4+
+
+Compatible with the provided code. Ensure you're using the App Router (`app/` directory).
+
+### Next.js 13.0 - 13.3
+
+Early App Router versions may need slight adjustments:
+
+```typescript
+// app/api/health/route.ts
+import { NextResponse } from 'next/server';
+
+// Export config for Node.js runtime (required for crypto)
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: Request) {
+  // ...
+}
+```
+
+### Next.js 12.x (Pages Router)
+
+For Pages Router, use API routes in `pages/api/`:
+
+```typescript
+// pages/api/health.ts
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { createHmac, timingSafeEqual } from 'crypto';
+
+export default function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Validate HMAC
+  const apiKey = req.headers['x-monitor-key'] as string;
+  const timestamp = req.headers['x-monitor-timestamp'] as string;
+  const signature = req.headers['x-monitor-signature'] as string;
+
+  // ... validation logic (same as validateMonitorRequest)
+
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    // ...
+  });
+}
+```
+
+### Directory structure by version
+
+**Next.js 13.4+ (App Router):**
+```
+app/
+  api/
+    health/
+      route.ts
+    logs/
+      route.ts
+lib/
+  validate-monitor-request.ts
+```
+
+**Next.js 12.x (Pages Router):**
+```
+pages/
+  api/
+    health.ts
+    logs.ts
+lib/
+  validate-monitor-request.ts
+```
+
+### Import paths
+
+**With `src/` directory:**
+```typescript
+import { validateMonitorRequest } from '@/lib/validate-monitor-request';
+```
+
+**Without `src/` directory:**
+```typescript
+import { validateMonitorRequest } from '../../lib/validate-monitor-request';
+```
+
+---
+
 ## Requirements
 
-- Next.js 13.4+ (App Router)
-- Node.js 18+
+- Next.js 12+ (App Router: 13.4+, Pages Router: 12+)
+- Node.js 16+ (18+ recommended)
+- Optional: `pino` or `winston` for file logging
