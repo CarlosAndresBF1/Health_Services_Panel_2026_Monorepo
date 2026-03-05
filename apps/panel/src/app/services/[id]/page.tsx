@@ -1003,8 +1003,8 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
         isActive: form.isActive,
         alertsEnabled: form.alertsEnabled,
       };
-      if (form.healthEndpoint) payload.healthEndpoint = form.healthEndpoint;
-      if (form.logsEndpoint) payload.logsEndpoint = form.logsEndpoint;
+      if (form.healthEndpoint) payload['healthEndpoint'] = form.healthEndpoint;
+      if (form.logsEndpoint) payload['logsEndpoint'] = form.logsEndpoint;
       const updated = await servicesApi.update(serviceId, payload);
       setService(updated);
       setEditModalOpen(false);
