@@ -6,7 +6,6 @@
 name: healthpanel
 
 services:
-
   # ─── PostgreSQL ─────────────────────────────────────────────────────────────
   postgres:
     image: postgres:17-alpine
@@ -58,6 +57,8 @@ services:
       SENDGRID_API_KEY: ${SENDGRID_API_KEY}
       ALERT_EMAIL_FROM: ${ALERT_EMAIL_FROM}
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO}
+      # Panel URL (used in email links)
+      PANEL_URL: ${PANEL_URL:-http://localhost:3044}
       # Monitor
       DEFAULT_CHECK_INTERVAL: ${DEFAULT_CHECK_INTERVAL:-60}
       SCREENSHOT_TIMEOUT: ${SCREENSHOT_TIMEOUT:-15000}

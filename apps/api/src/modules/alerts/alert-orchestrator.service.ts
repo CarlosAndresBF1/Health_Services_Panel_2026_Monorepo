@@ -35,11 +35,8 @@ export class AlertOrchestratorService {
 
     try {
       // Parallel: screenshot + logs collection
-      const isWebType = service.type === ServiceType.WEB_NEXTJS;
       const [screenshotResult, logsSnapshot] = await Promise.all([
-        isWebType
-          ? this.screenshotService.capture(service.url, service.id)
-          : Promise.resolve(null),
+        this.screenshotService.capture(service.url, service.id),
         this.logCollectorService.collect(service),
       ]);
 
