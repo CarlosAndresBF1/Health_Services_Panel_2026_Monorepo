@@ -70,8 +70,12 @@ RUN addgroup --system --gid 1001 nestjs && \
 # Copy root package files
 COPY package.json pnpm-workspace.yaml ./
 
-# Copy api package.json
+# Copy package.json files for workspace resolution
 COPY apps/api/package.json ./apps/api/
+COPY packages/shared/package.json ./packages/shared/
+
+# Copy shared package built output (required as workspace dep)
+COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 
 # Install only production dependencies
 RUN pnpm install --prod --filter=@healthpanel/api

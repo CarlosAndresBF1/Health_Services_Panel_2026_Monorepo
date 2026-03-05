@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { Cron, CronExpression } from "@nestjs/schedule";
+import { Cron } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
 import { LessThan, Repository } from "typeorm";
 import * as fs from "fs";
@@ -7,15 +7,15 @@ import * as path from "path";
 
 import { HealthCheck } from "../../database/entities/health-check.entity";
 
-const RETENTION_DAYS = 30;
+const RETENTION_DAYS = 7;
 const SCREENSHOTS_DIR = path.resolve(process.cwd(), "screenshots");
 
 /**
  * Automatically cleans up old data to prevent unbounded DB/disk growth:
- *   - health_checks older than 30 days
- *   - screenshots older than 30 days
+ *   - health_checks older than 7 days
+ *   - screenshots older than 7 days
  *
- * Runs daily at 3:00 AM.
+ * Runs every 2 days at 3:00 AM.
  */
 @Injectable()
 export class CleanupService {
@@ -26,7 +26,7 @@ export class CleanupService {
     private readonly healthCheckRepository: Repository<HealthCheck>,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  @Cron('0 3 */2 * *')
   async handleCleanup(): Promise<void> {
     this.logger.log("Starting scheduled data cleanup…");
 

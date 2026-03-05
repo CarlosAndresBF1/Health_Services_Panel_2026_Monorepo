@@ -14,6 +14,12 @@ export interface UpdateSettingsDto {
   alert_min_interval_ms?: number;
 }
 
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export const settingsApi = {
   get(): Promise<SettingsResponse> {
     return apiClient.get<SettingsResponse>("/api/settings");
@@ -21,5 +27,9 @@ export const settingsApi = {
 
   update(data: UpdateSettingsDto): Promise<SettingsResponse> {
     return apiClient.put<SettingsResponse>("/api/settings", data);
+  },
+
+  changePassword(data: ChangePasswordDto): Promise<{ message: string }> {
+    return apiClient.put<{ message: string }>("/api/auth/change-password", data);
   },
 };

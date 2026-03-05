@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { DashboardShell } from '@/components/dashboard-shell';
-import { settingsApi, type SettingsResponse, type UpdateSettingsDto } from '@/lib/settings-api';
+import { settingsApi, type SettingsResponse, type UpdateSettingsDto, type ChangePasswordDto } from '@/lib/settings-api';
 
 const INTERVAL_OPTIONS = [
   { label: '1 minute', value: 60_000 },
@@ -20,11 +20,17 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Form state
+  // Alert form state
   const [emailTo, setEmailTo] = useState('');
   const [emailFrom, setEmailFrom] = useState('');
   const [alertsEnabled, setAlertsEnabled] = useState(true);
   const [minInterval, setMinInterval] = useState(300_000);
+
+  // Change password form state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -76,6 +82,35 @@ export default function SettingsPage() {
       setToast({ type: 'error', message: 'Failed to save settings' });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleChangePassword() {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setToast({ type: 'error', message: 'All password fields are required' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setToast({ type: 'error', message: 'New password and confirmation do not match' });
+      return;
+    }
+    if (newPassword.length < 8) {
+      setToast({ type: 'error', message: 'New password must be at least 8 characters' });
+      return;
+    }
+
+    setChangingPassword(true);
+    setToast(null);
+    try {
+      const result = await settingsApi.changePassword({ currentPassword, newPassword, confirmPassword } as ChangePasswordDto);
+      setToast({ type: 'success', message: result.message });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Failed to change password' });
+    } finally {
+      setChangingPassword(false);
     }
   }
 
@@ -235,6 +270,78 @@ export default function SettingsPage() {
           {hasChanges && (
             <span className="text-xs text-text-muted">You have unsaved changes</span>
           )}
+        </div>
+      </div>
+
+      {/* Change Password */}
+      <div
+        className="mt-6 rounded-xl border p-6"
+        style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.08)' }}
+      >
+        <h2 className="text-base font-semibold text-text-primary mb-1">Security</h2>
+        <p className="text-sm text-text-muted mb-6">Change your administrator password.</p>
+
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="currentPassword" className="block text-sm font-medium text-text-primary mb-1.5">
+              Current Password
+            </label>
+            <input
+              id="currentPassword"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+              className="w-full rounded-lg border px-3 py-2 text-sm text-text-primary placeholder-text-muted outline-none transition-colors focus:border-accent"
+              style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}
+            />
+          </div>
+          <div>
+            <label htmlFor="newPassword" className="block text-sm font-medium text-text-primary mb-1.5">
+              New Password
+            </label>
+            <input
+              id="newPassword"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+              className="w-full rounded-lg border px-3 py-2 text-sm text-text-primary placeholder-text-muted outline-none transition-colors focus:border-accent"
+              style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}
+            />
+          </div>
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-text-primary mb-1.5">
+              Confirm New Password
+            </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+              className="w-full rounded-lg border px-3 py-2 text-sm text-text-primary placeholder-text-muted outline-none transition-colors focus:border-accent"
+              style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}
+            />
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <button
+            onClick={() => void handleChangePassword()}
+            disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+            className="rounded-lg px-5 py-2.5 text-sm font-semibold transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ backgroundColor: '#C8A951', color: '#0A0F1A' }}
+          >
+            {changingPassword ? (
+              <span className="flex items-center gap-2">
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Updating…
+              </span>
+            ) : (
+              'Update Password'
+            )}
+          </button>
         </div>
       </div>
 
