@@ -219,9 +219,9 @@ function OverviewTab({
       {/* System info from responseData */}
       {latestCheck?.responseData && (() => {
         const data = latestCheck.responseData as Record<string, unknown>;
-        const disk = data.disk as { total_gb?: number; free_gb?: number; used_gb?: number; used_percent?: number } | undefined;
-        const memory = data.memory as { total_mb?: number; free_mb?: number; used_mb?: number; used_percent?: number } | undefined;
-        const db = data.db as { connected?: boolean; type?: string } | undefined;
+        const disk = data['disk'] as { total_gb?: number; free_gb?: number; used_gb?: number; used_percent?: number } | undefined;
+        const memory = data['memory'] as { total_mb?: number; free_mb?: number; used_mb?: number; used_percent?: number } | undefined;
+        const db = data['db'] as { connected?: boolean; type?: string } | undefined;
         const hasSystemInfo = disk || memory || db;
 
         if (!hasSystemInfo) return null;
