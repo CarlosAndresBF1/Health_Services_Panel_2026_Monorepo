@@ -11,6 +11,8 @@ HealthPanel provides real-time monitoring of websites and APIs with alerting via
 - **Real-time monitoring** — Periodic health checks with configurable intervals
 - **Incident detection** — Automatic incident creation on downtime, resolution on recovery
 - **Email alerts** — SendGrid-powered alerts with screenshot and log attachments
+- **Resource alerts** — Disk and memory usage warnings with configurable thresholds
+- **System info** — Real-time disk, memory, and database status from monitored services
 - **Live dashboard** — WebSocket-based real-time status updates
 - **Screenshot capture** — Puppeteer-powered screenshots on incidents (web services)
 - **Log collection** — Remote log fetching from monitored services
@@ -270,6 +272,15 @@ cp .env.example .env
 | `ALERT_EMAIL_FROM` | Sender address for alert emails |
 | `ALERT_EMAIL_TO` | Recipient address for alert emails |
 
+### Resource Thresholds (configurable via Settings page)
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Disk usage threshold | `90%` | Email alert when disk usage exceeds this percentage |
+| Memory usage threshold | `90%` | Email alert when memory usage exceeds this percentage |
+
+Resource alerts have a 30-minute cooldown per service to prevent email spam. WebSocket warnings are emitted on every check that exceeds thresholds (real-time UI).
+
 ### Monitor
 
 | Variable | Default | Description |
@@ -333,7 +344,11 @@ Copy files from `external-integrations/nextjs/` into your project. See [external
 
 Any HTTP service can be monitored by implementing two endpoints:
 
-1. **`GET /health`** — Returns HTTP 200 with `{ status: "ok" }`
+1. **`GET /health`** — Returns HTTP 200 with JSON body including:
+   - `status: "ok"` (required)
+   - `db: { connected: true, type: "postgres" }` (optional — database connectivity)
+   - `disk: { total_gb, free_gb, used_gb, used_percent }` (optional — triggers resource alerts)
+   - `memory: { total_mb, free_mb, used_mb, used_percent }` (optional — triggers resource alerts)
 2. **`GET /logs?lines=100`** — Returns recent application logs
 
 Both endpoints must validate HMAC-SHA256 signatures sent in request headers:
@@ -354,8 +369,9 @@ Both endpoints must validate HMAC-SHA256 signatures sent in request headers:
 4. **Retry** — On `DOWN`, one automatic retry before marking as down
 5. **Incident Detection** — If `DOWN` and no open incident → create incident
 6. **Alert** — On new incident: capture screenshot (web types) + collect logs + send email
-7. **Resolution** — When service returns to `UP` → resolve incident + send recovery email
-8. **Broadcast** — Every check result is broadcast via WebSocket to the dashboard
+7. **Resource Check** — After each check, evaluate disk/memory from response data against configured thresholds (default: 90%). If exceeded → WebSocket warning + email alert (30-minute cooldown per service)
+8. **Resolution** — When service returns to `UP` → resolve incident + send recovery email
+9. **Broadcast** — Every check result is broadcast via WebSocket to the dashboard
 
 ### SSRF Protection
 
