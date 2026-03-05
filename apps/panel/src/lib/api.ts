@@ -1,17 +1,4 @@
 const BASE_URL = "/backend";
-const COOKIE_NAME = "healthpanel-token";
-
-function getTokenFromCookie(): string | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const match = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith(`${COOKIE_NAME}=`));
-
-  return match ? (match.split("=")[1] ?? null) : null;
-}
 
 interface RequestOptions {
   headers?: Record<string, string>;
@@ -24,16 +11,10 @@ async function request<T>(
   body?: unknown,
   options: RequestOptions = {},
 ): Promise<T> {
-  const token = options.skipAuth ? null : getTokenFromCookie();
-
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...options.headers,
   };
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
 
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
