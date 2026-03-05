@@ -71,9 +71,8 @@ class HealthController extends Controller
             $dbStatus = 'error';
         }
 
-        $memTotal = $this->getTotalMemory();
-        $memUsed = memory_get_usage(true);
-        $memFree = $memTotal > 0 ? $memTotal - $memUsed : 0;
+        [$memTotal, $memFree] = $this->getSystemMemory();
+        $memUsed = $memTotal > 0 ? $memTotal - $memFree : 0;
 
         $diskTotal = disk_total_space('/');
         $diskFree = disk_free_space('/');
@@ -104,18 +103,34 @@ class HealthController extends Controller
     }
 
     /**
-     * Get total system memory in bytes.
-     * Reads from /proc/meminfo on Linux; returns 0 on unsupported OS.
+     * Get system RAM total and free in bytes.
+     * Reads from /proc/meminfo on Linux; returns [0, 0] on unsupported OS.
+     *
+     * IMPORTANT: Do NOT use memory_get_usage() — that returns PHP process
+     * heap only (~50-100MB), not actual system RAM.
+     *
+     * @return array{0: int, 1: int} [totalBytes, freeBytes]
      */
-    private function getTotalMemory(): int
+    private function getSystemMemory(): array
     {
         if (PHP_OS_FAMILY === 'Linux' && is_readable('/proc/meminfo')) {
             $meminfo = file_get_contents('/proc/meminfo');
-            if (preg_match('/MemTotal:\s+(\d+)\s+kB/', $meminfo, $matches)) {
-                return (int) $matches[1] * 1024;
+            $total = 0;
+            $free = 0;
+
+            if (preg_match('/MemTotal:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                $total = (int) $m[1] * 1024;
             }
+            // MemAvailable is more accurate than MemFree (includes reclaimable cache)
+            if (preg_match('/MemAvailable:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                $free = (int) $m[1] * 1024;
+            } elseif (preg_match('/MemFree:\s+(\d+)\s+kB/', $meminfo, $m)) {
+                $free = (int) $m[1] * 1024;
+            }
+
+            return [$total, $free];
         }
 
-        return 0;
+        return [0, 0];
     }
 }
