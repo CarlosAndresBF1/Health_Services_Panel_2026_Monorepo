@@ -47,7 +47,7 @@ Your service now exposes:
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/health` | System status, uptime, memory |
+| `GET /api/health` | System status, uptime, disk, memory, DB |
 | `GET /api/logs?lines=100` | Last N lines from log file (max 500) |
 
 Both endpoints are protected by HMAC-SHA256 authentication — only HealthPanel can access them.
@@ -83,21 +83,50 @@ const prisma = new PrismaClient();
 export async function GET(request: Request) {
   // ... auth validation ...
 
-  let dbStatus = 'disconnected';
+  let dbConnected = false;
   try {
     await prisma.$queryRaw`SELECT 1`;
-    dbStatus = 'connected';
-  } catch {
-    dbStatus = 'error';
-  }
+    dbConnected = true;
+  } catch {}
 
   return NextResponse.json({
-    status: dbStatus === 'connected' ? 'ok' : 'error',
-    db: dbStatus,
+    status: dbConnected ? 'ok' : 'error',
+    // disk and memory are already included by default
+    db: { connected: dbConnected, type: 'postgresql' },
     // ...
   });
 }
 ```
+
+### Expected response structure
+
+HealthPanel expects the `/api/health` endpoint to return JSON with these fields:
+
+```json
+{
+  "status": "ok",
+  "uptime": 12345,
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "disk": {
+    "total_gb": 50.0,
+    "used_gb": 30.0,
+    "free_gb": 20.0,
+    "used_percent": 60.0
+  },
+  "memory": {
+    "total_mb": 8192,
+    "used_mb": 4096,
+    "free_mb": 4096,
+    "used_percent": 50.0
+  },
+  "db": {
+    "connected": true,
+    "type": "postgres"
+  }
+}
+```
+
+> **Note:** `disk` and `memory` use **snake_case** field names. `db` must be an object with `connected: boolean`.
 
 ---
 

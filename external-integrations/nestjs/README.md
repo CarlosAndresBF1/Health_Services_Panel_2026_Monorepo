@@ -52,7 +52,7 @@ Your service now exposes:
 
 | Endpoint | Description |
 |---|---|
-| `GET /health` | System status, uptime, memory |
+| `GET /health` | System status, uptime, disk, memory, DB |
 | `GET /logs?lines=100` | Last N lines from log file (max 500) |
 
 Both endpoints are protected by HMAC-SHA256 authentication — only HealthPanel can access them.
@@ -78,12 +78,13 @@ The `MonitorGuard` validates:
 
 ## Customizing the Health Endpoint
 
-To add database connectivity checks, inject your DB connection:
+The default health endpoint returns system memory (via `os` module), disk usage, and a placeholder `db: { connected: false }`. To add a real database check, inject your DB connection:
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import * as os from 'os';
 import { MonitorGuard } from './monitor.guard';
 
 @Controller()
@@ -93,29 +94,56 @@ export class HealthController {
 
   @Get('health')
   async getHealth() {
-    let dbStatus = 'disconnected';
+    let dbConnected = false;
+    let dbType: string | undefined;
     try {
       await this.dataSource.query('SELECT 1');
-      dbStatus = 'connected';
-    } catch {
-      dbStatus = 'error';
-    }
+      dbConnected = this.dataSource.isInitialized;
+      dbType = this.dataSource.options.type as string;
+    } catch {}
 
-    const mem = process.memoryUsage();
     return {
-      status: dbStatus === 'connected' ? 'ok' : 'error',
+      status: dbConnected ? 'ok' : 'error',
       uptime: Math.floor(process.uptime()),
       timestamp: new Date().toISOString(),
-      db: dbStatus,
-      memory: {
-        rss: Math.round(mem.rss / 1024 / 1024),
-        heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
-        heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
-      },
+      memory: { /* ... uses os.totalmem()/os.freemem() */ },
+      disk: { /* ... uses df -k / */ },
+      db: { connected: dbConnected, type: dbType },
+      nodeVersion: process.version,
     };
   }
 }
 ```
+
+### Expected response structure
+
+HealthPanel expects the `/health` endpoint to return JSON with these fields:
+
+```json
+{
+  "status": "ok",
+  "uptime": 12345,
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "disk": {
+    "total_gb": 50.0,
+    "used_gb": 30.0,
+    "free_gb": 20.0,
+    "used_percent": 60.0
+  },
+  "memory": {
+    "total_mb": 8192,
+    "used_mb": 4096,
+    "free_mb": 4096,
+    "used_percent": 50.0
+  },
+  "db": {
+    "connected": true,
+    "type": "postgres"
+  }
+}
+```
+
+> **Note:** `disk` and `memory` use **snake_case** field names. `db` must be an object with `connected: boolean`.
 
 ## Customizing the Log File Path
 

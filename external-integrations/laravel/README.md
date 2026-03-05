@@ -61,7 +61,7 @@ Your service now exposes:
 
 | Endpoint | Description |
 |---|---|
-| `GET /health` | System status, uptime, DB connectivity, memory |
+| `GET /health` | System status, uptime, disk, memory, DB |
 | `GET /logs?lines=100` | Last N lines from log file (max 500) |
 
 Both endpoints are protected by HMAC-SHA256 authentication — only HealthPanel can access them.
@@ -93,24 +93,55 @@ Edit `HealthController.php` to add custom checks:
 public function __invoke(): JsonResponse
 {
     // Add Redis check
-    $redisStatus = 'disconnected';
+    $redisConnected = false;
     try {
         \Illuminate\Support\Facades\Redis::ping();
-        $redisStatus = 'connected';
-    } catch (\Exception $e) {
-        $redisStatus = 'error';
-    }
+        $redisConnected = true;
+    } catch (\Exception $e) {}
 
     return response()->json([
         'status' => 'ok',
         'uptime' => time() - (int) LARAVEL_START,
         'timestamp' => now()->toISOString(),
-        'db' => $dbStatus,
-        'redis' => $redisStatus,
+        'db' => [
+            'connected' => true,
+            'type' => DB::connection()->getDriverName(),
+        ],
+        'redis' => ['connected' => $redisConnected],
         // ...
     ]);
 }
 ```
+
+### Expected response structure
+
+HealthPanel expects the `/health` endpoint to return JSON with these fields:
+
+```json
+{
+  "status": "ok",
+  "uptime": 12345,
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "disk": {
+    "total_gb": 50.0,
+    "used_gb": 30.0,
+    "free_gb": 20.0,
+    "used_percent": 60.0
+  },
+  "memory": {
+    "total_mb": 8192,
+    "used_mb": 4096,
+    "free_mb": 4096,
+    "used_percent": 50.0
+  },
+  "db": {
+    "connected": true,
+    "type": "mysql"
+  }
+}
+```
+
+> **Note:** `disk` and `memory` use **snake_case** field names. `db` must be an object with `connected: boolean`.
 
 ---
 

@@ -19,16 +19,19 @@ class HealthController extends Controller
     public function __invoke(): JsonResponse
     {
         $dbStatus = 'disconnected';
+        $dbType = null;
 
         try {
-            DB::connection()->getPdo();
+            $pdo = DB::connection()->getPdo();
             $dbStatus = 'connected';
+            $dbType = DB::connection()->getDriverName();
         } catch (\Exception $e) {
             $dbStatus = 'error';
         }
 
-        $memory = memory_get_usage(true);
-        $peakMemory = memory_get_peak_usage(true);
+        $memTotal = $this->getTotalMemory();
+        $memUsed = memory_get_usage(true);
+        $memFree = $memTotal > 0 ? $memTotal - $memUsed : 0;
 
         $diskTotal = disk_total_space('/');
         $diskFree = disk_free_space('/');
@@ -37,10 +40,15 @@ class HealthController extends Controller
             'status' => $dbStatus === 'connected' ? 'ok' : 'error',
             'uptime' => time() - (int) (defined('LARAVEL_START') ? LARAVEL_START : $_SERVER['REQUEST_TIME']),
             'timestamp' => now()->toISOString(),
-            'db' => $dbStatus,
+            'db' => [
+                'connected' => $dbStatus === 'connected',
+                'type' => $dbType,
+            ],
             'memory' => [
-                'current_mb' => round($memory / 1024 / 1024, 2),
-                'peak_mb' => round($peakMemory / 1024 / 1024, 2),
+                'total_mb' => $memTotal > 0 ? round($memTotal / 1024 / 1024, 0) : null,
+                'used_mb' => round($memUsed / 1024 / 1024, 0),
+                'free_mb' => $memTotal > 0 ? round($memFree / 1024 / 1024, 0) : null,
+                'used_percent' => $memTotal > 0 ? round(($memUsed / $memTotal) * 100, 1) : null,
             ],
             'disk' => [
                 'total_gb' => round($diskTotal / 1024 / 1024 / 1024, 2),
@@ -51,5 +59,21 @@ class HealthController extends Controller
             'php_version' => PHP_VERSION,
             'laravel_version' => app()->version(),
         ]);
+    }
+
+    /**
+     * Get total system memory in bytes.
+     * Reads from /proc/meminfo on Linux; returns 0 on unsupported OS.
+     */
+    private function getTotalMemory(): int
+    {
+        if (PHP_OS_FAMILY === 'Linux' && is_readable('/proc/meminfo')) {
+            $meminfo = file_get_contents('/proc/meminfo');
+            if (preg_match('/MemTotal:\s+(\d+)\s+kB/', $meminfo, $matches)) {
+                return (int) $matches[1] * 1024;
+            }
+        }
+
+        return 0;
     }
 }

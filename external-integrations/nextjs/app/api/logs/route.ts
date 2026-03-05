@@ -17,10 +17,11 @@ const MAX_LINES = 500;
  */
 export async function GET(request: Request): Promise<NextResponse> {
   const url = new URL(request.url);
+  const fullPath = url.pathname + url.search;
   const auth = validateMonitorRequest(
     request.headers,
     request.method,
-    url.pathname,
+    fullPath,
   );
 
   if (!auth.valid) {

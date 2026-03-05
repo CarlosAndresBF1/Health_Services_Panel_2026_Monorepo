@@ -86,38 +86,38 @@ function ServiceCard({ service, latestCheck }: { service: ServiceRecord; latestC
         {/* Resource bars */}
         {(() => {
           const rd = latestCheck?.responseData;
-          const disk = rd?.['disk'] as { usedPercent?: number } | undefined;
-          const mem = rd?.['memory'] as { usedPercent?: number } | undefined;
+          const disk = rd?.['disk'] as { used_percent?: number } | undefined;
+          const mem = rd?.['memory'] as { used_percent?: number } | undefined;
           if (!disk && !mem) return null;
           const barColor = (pct: number) =>
             pct >= 90 ? '#EF4444' : pct >= 70 ? '#F59E0B' : '#22C55E';
           return (
             <div className="mt-3 flex flex-col gap-1.5">
-              {disk?.usedPercent != null && (
+              {disk?.used_percent != null && (
                 <div className="flex items-center gap-2">
                   <span className="w-12 text-[10px] text-text-muted font-mono">Disk</span>
                   <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
-                      style={{ width: `${Math.min(disk.usedPercent, 100)}%`, backgroundColor: barColor(disk.usedPercent) }}
+                      style={{ width: `${Math.min(disk.used_percent, 100)}%`, backgroundColor: barColor(disk.used_percent) }}
                     />
                   </div>
-                  <span className="w-10 text-right text-[10px] font-mono" style={{ color: barColor(disk.usedPercent) }}>
-                    {disk.usedPercent.toFixed(0)}%
+                  <span className="w-10 text-right text-[10px] font-mono" style={{ color: barColor(disk.used_percent) }}>
+                    {disk.used_percent.toFixed(0)}%
                   </span>
                 </div>
               )}
-              {mem?.usedPercent != null && (
+              {mem?.used_percent != null && (
                 <div className="flex items-center gap-2">
                   <span className="w-12 text-[10px] text-text-muted font-mono">Mem</span>
                   <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
-                      style={{ width: `${Math.min(mem.usedPercent, 100)}%`, backgroundColor: barColor(mem.usedPercent) }}
+                      style={{ width: `${Math.min(mem.used_percent, 100)}%`, backgroundColor: barColor(mem.used_percent) }}
                     />
                   </div>
-                  <span className="w-10 text-right text-[10px] font-mono" style={{ color: barColor(mem.usedPercent) }}>
-                    {mem.usedPercent.toFixed(0)}%
+                  <span className="w-10 text-right text-[10px] font-mono" style={{ color: barColor(mem.used_percent) }}>
+                    {mem.used_percent.toFixed(0)}%
                   </span>
                 </div>
               )}
