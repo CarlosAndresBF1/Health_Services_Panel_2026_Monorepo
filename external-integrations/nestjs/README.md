@@ -284,9 +284,110 @@ import 'dotenv/config';
 
 ---
 
+## Troubleshooting
+
+### Getting 404 on `/health` or `/logs`
+
+**1. Check if auth guards are blocking the routes**
+
+If your project uses a global `AuthGuard` or JWT guard, it may block the HealthPanel endpoints. The `MonitorGuard` handles its own authentication, so the routes need to bypass your app's auth.
+
+If you have a global guard in `app.module.ts`:
+
+```typescript
+// app.module.ts
+import { APP_GUARD } from '@nestjs/core';
+
+@Module({
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard, // ← This will block /health and /logs!
+    },
+  ],
+})
+```
+
+Fix it by making `MonitorGuard` routes public:
+
+```typescript
+// In your JwtAuthGuard
+import { IS_PUBLIC_KEY } from './decorators/public.decorator';
+
+@Injectable()
+export class JwtAuthGuard extends AuthGuard('jwt') {
+  canActivate(context: ExecutionContext) {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) return true;
+    return super.canActivate(context);
+  }
+}
+```
+
+Then add `@Public()` decorator to the HealthPanel controllers, or exclude the paths in the guard.
+
+**2. Verify the module is imported**
+
+```typescript
+// app.module.ts
+import { HealthPanelModule } from './health-panel';
+
+@Module({
+  imports: [HealthPanelModule], // ← Must be here
+})
+```
+
+**3. Check registered routes**
+
+In your NestJS logs at startup, you should see:
+```
+[RoutesResolver] HealthController {/health}: ...
+[RoutesResolver] LogsController {/logs}: ...
+```
+
+**4. Check the URL configured in HealthPanel**
+
+- ✅ `https://your-domain.com` (HealthPanel appends `/health` automatically)
+- ❌ `https://your-domain.com/api` (would result in `/api/health`)
+
+If your NestJS app uses a global prefix (`app.setGlobalPrefix('api')`), the URL should still be the base domain and configure the health/logs endpoints path accordingly.
+
+**5. Verify environment variables**
+
+```bash
+# Quick test from the server
+curl -s http://localhost:3000/health
+# Should return: {"error":"Missing monitor authentication headers"} with 401
+```
+
+### Getting 401
+
+Route works but HMAC auth failed:
+- `MONITOR_API_KEY` or `MONITOR_SECRET` don't match HealthPanel
+- Server clock is out of sync (5-minute timestamp window)
+
+### Logs show "Log file not found"
+
+- Check `MONITOR_LOG_FILE` path exists on the server
+- For daily rotation, set `MONITOR_LOG_ROTATION=daily`
+- Verify file permissions
+
+---
+
 ## Requirements
 
 - NestJS 8+ (tested with NestJS 8, 9, 10, 11)
 - Node.js 16+ (18+ recommended for `crypto.timingSafeEqual`)
 - Express adapter (default NestJS setup)
 - Optional: `glob` package for pattern matching
+
+## Quick Checklist
+
+- [ ] `HealthPanelModule` imported in `app.module.ts`
+- [ ] `MONITOR_API_KEY` and `MONITOR_SECRET` set in `.env`
+- [ ] Global auth guards exclude `/health` and `/logs`
+- [ ] `dotenv` or `@nestjs/config` loads env in production
+- [ ] Service URL in HealthPanel is the base domain

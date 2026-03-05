@@ -130,31 +130,166 @@ HealthPanel expects the `/api/health` endpoint to return JSON with these fields:
 
 ---
 
-## Using with Middleware (Optional)
+## ⚠️ Middleware & Authentication — IMPORTANT
 
-If you prefer using Next.js middleware to protect the routes globally:
+If your project uses **next-auth**, **Clerk**, **Auth.js**, or any authentication middleware, it will likely **block** the `/api/health` and `/api/logs` endpoints, causing HealthPanel to receive **404** or **redirect responses** instead of the health data.
+
+### Fix: Exclude HealthPanel routes from your middleware
+
+**If using `next-auth/middleware`** (most common):
+
+```typescript
+// middleware.ts
+export { default } from 'next-auth/middleware';
+
+export const config = {
+  // ❌ WRONG — blocks all routes including /api/health and /api/logs:
+  // matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+
+  // ✅ CORRECT — explicitly exclude HealthPanel endpoints:
+  matcher: [
+    '/((?!api/health|api/logs|api/auth|_next/static|_next/image|favicon.ico).*)',
+  ],
+};
+```
+
+**If using a custom middleware function:**
 
 ```typescript
 // middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
-export function middleware(request: NextRequest) {
-  // Only apply to /api/health and /api/logs
+export async function middleware(request: NextRequest) {
+  // Skip authentication for HealthPanel endpoints
   if (
     request.nextUrl.pathname.startsWith('/api/health') ||
     request.nextUrl.pathname.startsWith('/api/logs')
   ) {
-    // Note: crypto.createHmac is not available in Edge Runtime.
-    // Use the route handler approach (default) instead,
-    // or use Node.js runtime for the middleware.
+    return NextResponse.next();
+  }
+
+  // Your normal auth logic...
+  const token = await getToken({ req: request });
+  if (!token) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   return NextResponse.next();
 }
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+};
 ```
 
-> **Note**: The route handler approach (included by default) is recommended because `crypto.createHmac` requires the Node.js runtime, not Edge.
+**If using Clerk:**
+
+```typescript
+// middleware.ts
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+
+const isPublicRoute = createRouteMatcher([
+  '/login(.*)',
+  '/api/health(.*)',  // ← Add this
+  '/api/logs(.*)',    // ← Add this
+]);
+
+export default clerkMiddleware((auth, request) => {
+  if (!isPublicRoute(request)) {
+    auth().protect();
+  }
+});
+```
+
+> **Why this matters:** HealthPanel sends requests with HMAC headers but **not** with session cookies or JWT tokens from your app's auth system. The middleware sees an unauthenticated request and returns 404/302 instead of letting the route handler validate the HMAC signature.
+
+---
+
+## Troubleshooting
+
+### Getting 404 on `/api/health` or `/api/logs`
+
+**1. Check if auth middleware is blocking the routes** (most common cause)
+
+Open your `middleware.ts` and verify the HealthPanel routes are excluded (see section above).
+
+Quick test — visit the endpoint directly in your browser:
+- `https://your-domain.com/api/health` → Should return `401` ("Missing monitor authentication headers") — this means the route works!
+- If you see your login page or a 404, it means middleware is intercepting the request.
+
+**2. Rebuild after adding the route files**
+
+Next.js caches route manifests. If you added the files after a build, you MUST rebuild:
+
+```bash
+# Clean build cache and rebuild
+rm -rf .next
+npm run build    # or: yarn build / pnpm build
+
+# Then restart the app
+pm2 restart your-app   # or however you manage your process
+```
+
+**3. Verify the routes are in the build output**
+
+After building, check that the routes compiled:
+
+```bash
+# Both should show route.js files:
+ls .next/server/app/api/health/
+ls .next/server/app/api/logs/
+```
+
+In the build output, look for:
+```
+λ /api/health    0 B    0 B
+λ /api/logs      0 B    0 B
+```
+
+If they don't appear, the files weren't found during build.
+
+**4. Ensure `dynamic = "force-dynamic"` is exported**
+
+Both route files must export `dynamic` to prevent Next.js from treating them as static:
+
+```typescript
+// app/api/health/route.ts AND app/api/logs/route.ts
+export const dynamic = 'force-dynamic';
+```
+
+**5. Check the URL configured in HealthPanel**
+
+Make sure the service URL in HealthPanel includes the full base:
+- ✅ `https://your-domain.com` (HealthPanel appends `/api/health` automatically)
+- ❌ `https://your-domain.com/api` (would result in `/api/api/health`)
+
+**6. Verify process.env loads correctly**
+
+In production, ensure `MONITOR_API_KEY` and `MONITOR_SECRET` are set in the **server environment**, not just in `.env.local` (which is only for local development). For Docker/PM2:
+
+```bash
+# Check if vars are available in the running process
+curl -s https://your-domain.com/api/health
+# Should return: {"error":"Missing monitor authentication headers"}
+# If it returns: {"error":"Monitor credentials not configured on this service"}
+# → the env vars are not loaded in the production environment.
+```
+
+### Getting 401 on `/api/health` or `/api/logs`
+
+This means the route works but authentication failed. Possible causes:
+- `MONITOR_API_KEY` or `MONITOR_SECRET` in the project don't match what's in HealthPanel
+- Server clock is out of sync (HMAC uses a 5-minute timestamp window)
+- The URL path used to sign the request doesn't match the actual path
+
+### Logs show "Log file not found"
+
+The `/api/logs` endpoint can't find the log file. Check:
+- The `MONITOR_LOG_FILE` path exists on the server
+- File permissions allow the Node.js process to read it
+- For daily rotation, set `MONITOR_LOG_ROTATION=daily`
 
 ---
 
@@ -370,3 +505,13 @@ import { validateMonitorRequest } from '../../lib/validate-monitor-request';
 - Next.js 12+ (App Router: 13.4+, Pages Router: 12+)
 - Node.js 16+ (18+ recommended)
 - Optional: `pino` or `winston` for file logging
+
+## Quick Checklist
+
+- [ ] Files copied: `app/api/health/route.ts`, `app/api/logs/route.ts`, `lib/validate-monitor-request.ts`
+- [ ] Import paths adjusted for your project (`@/lib/...` or relative)
+- [ ] `MONITOR_API_KEY` and `MONITOR_SECRET` set in production environment
+- [ ] Auth middleware excludes `/api/health` and `/api/logs`
+- [ ] Project rebuilt (`rm -rf .next && npm run build`) after adding files
+- [ ] Both routes export `dynamic = 'force-dynamic'`
+- [ ] Service URL in HealthPanel is the base domain (no `/api` suffix)

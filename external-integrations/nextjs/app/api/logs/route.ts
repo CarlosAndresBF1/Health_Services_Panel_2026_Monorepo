@@ -3,6 +3,9 @@ import { readFileSync, existsSync, statSync, readdirSync } from "fs";
 import { resolve, isAbsolute, join, dirname, basename } from "path";
 import { validateMonitorRequest } from "../../lib/validate-monitor-request";
 
+// Force dynamic rendering — prevents Next.js from caching this route as static
+export const dynamic = "force-dynamic";
+
 const DEFAULT_LINES = 100;
 const MAX_LINES = 500;
 

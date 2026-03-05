@@ -283,7 +283,83 @@ protected $middlewareAliases = [
 
 ---
 
+## Troubleshooting
+
+### Getting 404 on `/health` or `/logs`
+
+**1. Check if auth middleware is blocking the routes** (most common cause)
+
+If your project uses Sanctum, Jetstream, Breeze, or custom auth middleware, the HealthPanel routes may be intercepted before reaching the controller.
+
+Verify the routes are registered without conflicting middleware:
+
+```bash
+php artisan route:list --path=health
+php artisan route:list --path=logs
+```
+
+Both should appear with only the `monitor.auth` middleware (from HealthPanel).
+
+Quick test — visit the endpoint in your browser:
+- `https://your-domain.com/health` → Should return `401` (JSON: "Missing monitor authentication headers")
+- If you see your login page or a 404, some middleware is intercepting.
+
+**2. Ensure routes are registered correctly**
+
+Check that `routes/healthpanel.php` is included. In `routes/web.php` or `routes/api.php`:
+
+```php
+require __DIR__ . '/healthpanel.php';
+```
+
+**3. Clear all Laravel caches**
+
+```bash
+php artisan route:clear
+php artisan config:clear
+php artisan cache:clear
+php artisan optimize
+```
+
+**4. Check the URL configured in HealthPanel**
+
+- ✅ `https://your-domain.com` (HealthPanel appends `/health` automatically)
+- ❌ `https://your-domain.com/api` (would result in `/api/health` — wrong unless routes are under api prefix)
+
+**5. Verify environment variables in production**
+
+```bash
+php artisan tinker
+>>> env('MONITOR_API_KEY')
+>>> env('MONITOR_SECRET')
+```
+
+Both should return non-null values.
+
+### Getting 401
+
+The route works but HMAC authentication failed:
+- `MONITOR_API_KEY` or `MONITOR_SECRET` don't match what's in HealthPanel
+- Server clock is out of sync (5-minute window for timestamps)
+
+### Logs show "Log file not found"
+
+- Check `MONITOR_LOG_FILE` path exists on the server
+- For daily rotation (`laravel-2026-03-05.log`), set `MONITOR_LOG_ROTATION=daily`
+- Verify file permissions allow the web server user to read the log
+
+---
+
 ## Requirements
 
 - Laravel 8+ (tested with Laravel 8, 9, 10, 11)
 - PHP 8.0+ (PHP 8.1+ recommended)
+
+## Quick Checklist
+
+- [ ] Files copied: controller, middleware, config, routes
+- [ ] Routes registered in `web.php` or `api.php`
+- [ ] `MONITOR_API_KEY` and `MONITOR_SECRET` set in `.env`
+- [ ] Auth middleware not blocking `/health` and `/logs`
+- [ ] Caches cleared (`php artisan optimize:clear`)
+- [ ] Service URL in HealthPanel is the base domain
