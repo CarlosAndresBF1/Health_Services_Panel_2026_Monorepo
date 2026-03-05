@@ -10,7 +10,7 @@ function getTokenFromCookie(): string | null {
     .split('; ')
     .find((row) => row.startsWith(`${COOKIE_NAME}=`));
 
-  return match ? match.split('=')[1] : null;
+  return match ? match.split('=')[1] ?? null : null;
 }
 
 interface RequestOptions {

@@ -36,8 +36,8 @@ function StatusDot({ status }: { status: ServiceStatus }) {
 }
 
 function ServiceCard({ service, latestCheck }: { service: ServiceRecord; latestCheck?: HealthCheckRecord | null }) {
-  const typeLabel = SERVICE_TYPE_LABELS[service.type] ?? service.type;
-  const typeColor = SERVICE_TYPE_COLORS[service.type] ?? '#9CA3AF';
+  const typeLabel = SERVICE_TYPE_LABELS[service.type as keyof typeof SERVICE_TYPE_LABELS] ?? service.type;
+  const typeColor = SERVICE_TYPE_COLORS[service.type as keyof typeof SERVICE_TYPE_COLORS] ?? '#9CA3AF';
   const status: ServiceStatus = (latestCheck?.status as ServiceStatus) ?? 'unknown';
   const statusLabel = status === 'unknown' ? 'Pending check' : `${latestCheck?.responseTimeMs ?? '—'}ms`;
 
@@ -145,7 +145,7 @@ export default function DashboardPage() {
     const promises = services.map((s) =>
       healthApi.getChecks(s.id, 1, 1).then((res: PaginatedHealthChecks) => ({
         serviceId: s.id,
-        check: res.data[0] ?? null,
+        check: res.data.length > 0 ? res.data[0]! : null,
       })).catch(() => ({ serviceId: s.id, check: null as HealthCheckRecord | null })),
     );
 
@@ -243,7 +243,7 @@ export default function DashboardPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
-            <ServiceCard key={s.id} service={s} latestCheck={statusMap[s.id] ?? null} />
+            <ServiceCard key={s.id} service={s} latestCheck={statusMap[s.id]} />
           ))}
         </div>
       )}

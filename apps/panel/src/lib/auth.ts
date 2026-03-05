@@ -9,7 +9,7 @@ export function getToken(): string | null {
     .split('; ')
     .find((row) => row.startsWith(`${COOKIE_NAME}=`));
 
-  return match ? decodeURIComponent(match.split('=')[1]) : null;
+  return match ? decodeURIComponent(match.split('=')[1] ?? '') : null;
 }
 
 export async function login(username: string, password: string): Promise<void> {

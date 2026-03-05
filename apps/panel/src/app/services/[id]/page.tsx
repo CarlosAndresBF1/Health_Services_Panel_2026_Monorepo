@@ -62,8 +62,8 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 }
 
 function TypeBadge({ type }: { type: string }) {
-  const label = SERVICE_TYPE_LABELS[type] ?? type;
-  const color = SERVICE_TYPE_COLORS[type] ?? '#9CA3AF';
+  const label = SERVICE_TYPE_LABELS[type as keyof typeof SERVICE_TYPE_LABELS] ?? type;
+  const color = SERVICE_TYPE_COLORS[type as keyof typeof SERVICE_TYPE_COLORS] ?? '#9CA3AF';
   return (
     <span
       className="rounded px-2 py-0.5 font-mono text-xs font-medium"
@@ -75,8 +75,8 @@ function TypeBadge({ type }: { type: string }) {
 }
 
 function StatusDot({ status }: { status: string }) {
-  const color = STATUS_COLOR[status] ?? STATUS_COLOR['unknown'];
-  const label = STATUS_LABEL[status] ?? STATUS_LABEL['unknown'];
+  const color = STATUS_COLOR[status] ?? '#6B7280';
+  const label = STATUS_LABEL[status] ?? 'UNKNOWN';
   return (
     <span className="flex items-center gap-2">
       <span
@@ -89,8 +89,8 @@ function StatusDot({ status }: { status: string }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const color = STATUS_COLOR[status] ?? STATUS_COLOR['unknown'];
-  const label = STATUS_LABEL[status] ?? STATUS_LABEL['unknown'];
+  const color = STATUS_COLOR[status] ?? '#6B7280';
+  const label = STATUS_LABEL[status] ?? 'UNKNOWN';
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-xs font-medium"
@@ -496,7 +496,7 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
   // Load latest check for overview status
   useEffect(() => {
     healthApi.getChecks(serviceId, 1, 1).then((res: PaginatedHealthChecks) => {
-      setLatestCheck(res.data[0] ?? null);
+      setLatestCheck(res.data.length > 0 ? res.data[0]! : null);
     }).catch(() => { /* ignore */ });
   }, [serviceId]);
 
