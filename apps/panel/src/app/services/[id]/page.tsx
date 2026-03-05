@@ -654,9 +654,13 @@ function IncidentsTab({
                 </div>
               )}
 
-              {/* Screenshot thumbnail */}
+              {/* Screenshot thumbnail — hidden if image fails to load */}
               {incident.screenshotPath && (
-                <div className="mt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.75rem' }}>
+                <div
+                  className="mt-3"
+                  style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.75rem' }}
+                  id={`screenshot-wrapper-${incident.id}`}
+                >
                   <p className="mb-2 font-mono text-xs text-text-muted uppercase tracking-wider">📸 Screenshot at incident time</p>
                   <button
                     onClick={() => setExpandedScreenshot(screenshotUrl(incident.screenshotPath!))}
@@ -669,6 +673,10 @@ function IncidentsTab({
                       alt={`Screenshot at incident #${incident.id}`}
                       className="h-36 w-64 object-cover object-top"
                       loading="lazy"
+                      onError={(e) => {
+                        const wrapper = (e.currentTarget as HTMLElement).closest(`[id^="screenshot-wrapper-"]`);
+                        if (wrapper) (wrapper as HTMLElement).style.display = 'none';
+                      }}
                     />
                   </button>
                 </div>
