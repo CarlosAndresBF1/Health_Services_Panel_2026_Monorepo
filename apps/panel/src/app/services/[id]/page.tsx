@@ -3,12 +3,15 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboard-shell';
-import { servicesApi, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, type ServiceRecord } from '@/lib/services-api';
+import { servicesApi, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, INTERVAL_OPTIONS, type ServiceRecord, type CreateServicePayload } from '@/lib/services-api';
 import { healthApi, type HealthCheckRecord, type IncidentRecord, type PaginatedHealthChecks, type PaginatedIncidents, screenshotUrl, servicePreviewUrl, captureServiceScreenshot } from '@/lib/health-api';
 import { useMonitorSocket, type WsHealthUpdate, type WsIncidentNew, type WsIncidentResolved, type WsResourceWarning } from '@/lib/use-monitor-socket';
 import { LogViewer } from '@/components/log-viewer';
 
-// ─── Tab types ────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type ServiceType = 'api_nestjs' | 'api_laravel' | 'web_nextjs';
+const SERVICE_TYPES: ServiceType[] = ['api_nestjs', 'api_laravel', 'web_nextjs'];
 
 type Tab = 'overview' | 'health-checks' | 'incidents' | 'logs';
 
@@ -401,13 +404,24 @@ function ScreenshotPreview({ serviceId }: { serviceId: number }) {
           onClick={() => setExpanded(false)}
         >
           <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setExpanded(false)}
-              className="absolute -top-3 -right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm text-white transition-colors hover:bg-white/20"
-              style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
-            >
-              ✕
-            </button>
+            <div className="absolute -top-3 right-0 z-10 flex items-center gap-2">
+              <a
+                href={`${previewSrc}?v=${imgKey}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-white transition-colors hover:bg-white/20"
+                style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+              >
+                ↗ Open in new tab
+              </a>
+              <button
+                onClick={() => setExpanded(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-sm text-white transition-colors hover:bg-white/20"
+                style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+              >
+                ✕
+              </button>
+            </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`${previewSrc}?v=${imgKey}`}
@@ -658,13 +672,24 @@ function IncidentsTab({
           onClick={() => setExpandedScreenshot(null)}
         >
           <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setExpandedScreenshot(null)}
-              className="absolute -top-3 -right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm text-white transition-colors hover:bg-white/20"
-              style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
-            >
-              ✕
-            </button>
+            <div className="absolute -top-3 right-0 z-10 flex items-center gap-2">
+              <a
+                href={expandedScreenshot}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-white transition-colors hover:bg-white/20"
+                style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+              >
+                ↗ Open in new tab
+              </a>
+              <button
+                onClick={() => setExpandedScreenshot(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-sm text-white transition-colors hover:bg-white/20"
+                style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+              >
+                ✕
+              </button>
+            </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={expandedScreenshot}
@@ -705,6 +730,129 @@ function IncidentsTab({
   );
 }
 
+// ─── Edit Service Modal ───────────────────────────────────────────────────────
+
+interface EditFormData {
+  name: string;
+  url: string;
+  type: ServiceType;
+  healthEndpoint: string;
+  logsEndpoint: string;
+  checkIntervalSeconds: number;
+  isActive: boolean;
+  alertsEnabled: boolean;
+}
+
+function EditServiceModal({
+  service,
+  onSave,
+  onClose,
+  busy,
+}: {
+  service: ServiceRecord;
+  onSave: (data: EditFormData) => void;
+  onClose: () => void;
+  busy: boolean;
+}) {
+  const [form, setForm] = useState<EditFormData>({
+    name: service.name,
+    url: service.url,
+    type: service.type as ServiceType,
+    healthEndpoint: service.healthEndpoint ?? '',
+    logsEndpoint: service.logsEndpoint ?? '',
+    checkIntervalSeconds: service.checkIntervalSeconds,
+    isActive: service.isActive,
+    alertsEnabled: service.alertsEnabled,
+  });
+
+  const field = (key: keyof EditFormData, value: string | number | boolean) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  const inputClass =
+    'w-full rounded-lg border px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent transition-colors';
+  const inputStyle = { backgroundColor: '#0A0F1A', borderColor: 'rgba(255,255,255,0.12)' };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
+      <div
+        className="w-full max-w-lg rounded-2xl border p-6 my-4"
+        style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
+      >
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-text-primary">Edit Service</h2>
+          <button onClick={onClose} className="text-text-muted hover:text-text-primary transition-colors">✕</button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Name *</label>
+              <input className={inputClass} style={inputStyle} value={form.name} onChange={(e) => field('name', e.target.value)} />
+            </div>
+            <div className="col-span-2">
+              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">URL *</label>
+              <input className={inputClass} style={inputStyle} value={form.url} onChange={(e) => field('url', e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Type *</label>
+              <select className={inputClass} style={inputStyle} value={form.type} onChange={(e) => field('type', e.target.value)}>
+                {SERVICE_TYPES.map((t) => (
+                  <option key={t} value={t}>{SERVICE_TYPE_LABELS[t]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Check interval</label>
+              <select className={inputClass} style={inputStyle} value={form.checkIntervalSeconds} onChange={(e) => field('checkIntervalSeconds', Number(e.target.value))}>
+                {INTERVAL_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Health endpoint</label>
+              <input className={inputClass} style={inputStyle} placeholder="/health" value={form.healthEndpoint} onChange={(e) => field('healthEndpoint', e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Logs endpoint</label>
+              <input className={inputClass} style={inputStyle} placeholder="/logs" value={form.logsEndpoint} onChange={(e) => field('logsEndpoint', e.target.value)} />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 pt-1">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-text-muted">
+              <input type="checkbox" className="accent-accent h-4 w-4" checked={form.isActive} onChange={(e) => field('isActive', e.target.checked)} />
+              Active monitoring
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-text-muted">
+              <input type="checkbox" className="accent-accent h-4 w-4" checked={form.alertsEnabled} onChange={(e) => field('alertsEnabled', e.target.checked)} />
+              Alerts enabled
+            </label>
+          </div>
+        </div>
+
+        <div className="mt-6 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-lg border py-2.5 text-sm text-text-muted transition-colors hover:border-accent hover:text-accent"
+            style={{ borderColor: 'rgba(255,255,255,0.12)' }}
+          >
+            Cancel
+          </button>
+          <button
+            disabled={busy || !form.name || !form.url}
+            onClick={() => onSave(form)}
+            className="flex-1 rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50"
+            style={{ backgroundColor: '#C8A951', color: '#0A0F1A' }}
+          >
+            {busy ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -714,6 +862,8 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
   const [service, setService] = useState<ServiceRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editBusy, setEditBusy] = useState(false);
 
   // Health checks state
   const [checks, setChecks] = useState<HealthCheckRecord[]>([]);
@@ -841,6 +991,30 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
     ),
   });
 
+  // Edit service
+  const handleEditSave = useCallback(async (form: EditFormData) => {
+    setEditBusy(true);
+    try {
+      const payload: Partial<CreateServicePayload> = {
+        name: form.name,
+        url: form.url,
+        type: form.type,
+        healthEndpoint: form.healthEndpoint || undefined,
+        logsEndpoint: form.logsEndpoint || undefined,
+        checkIntervalSeconds: form.checkIntervalSeconds,
+        isActive: form.isActive,
+        alertsEnabled: form.alertsEnabled,
+      };
+      const updated = await servicesApi.update(serviceId, payload);
+      setService(updated);
+      setEditModalOpen(false);
+    } catch {
+      // ignore
+    } finally {
+      setEditBusy(false);
+    }
+  }, [serviceId]);
+
   // Manual check
   const handleCheckNow = useCallback(async () => {
     setChecking(true);
@@ -889,13 +1063,22 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
       title={service.name}
       subtitle={service.url}
       actions={
-        <Link
-          href="/services"
-          className="rounded-lg border px-4 py-2 text-sm text-text-muted transition-colors hover:border-accent hover:text-accent"
-          style={{ borderColor: 'rgba(255,255,255,0.12)' }}
-        >
-          ← Services
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setEditModalOpen(true)}
+            className="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150"
+            style={{ backgroundColor: '#C8A951', color: '#0A0F1A' }}
+          >
+            ✏️ Edit
+          </button>
+          <Link
+            href="/services"
+            className="rounded-lg border px-4 py-2 text-sm text-text-muted transition-colors hover:border-accent hover:text-accent"
+            style={{ borderColor: 'rgba(255,255,255,0.12)' }}
+          >
+            ← Services
+          </Link>
+        </div>
       }
     >
       {/* Tabs */}
@@ -976,6 +1159,16 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
         />
       )}
       {activeTab === 'logs' && <LogViewer serviceId={serviceId} />}
+
+      {/* Edit service modal */}
+      {editModalOpen && service && (
+        <EditServiceModal
+          service={service}
+          onSave={handleEditSave}
+          onClose={() => setEditModalOpen(false)}
+          busy={editBusy}
+        />
+      )}
     </DashboardShell>
   );
 }
