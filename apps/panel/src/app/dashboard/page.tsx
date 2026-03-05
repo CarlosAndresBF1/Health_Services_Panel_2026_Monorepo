@@ -35,7 +35,7 @@ function StatusDot({ status }: { status: ServiceStatus }) {
   );
 }
 
-function ServiceCard({ service, latestCheck }: { service: ServiceRecord; latestCheck?: HealthCheckRecord | null }) {
+function ServiceCard({ service, latestCheck }: { service: ServiceRecord; latestCheck?: HealthCheckRecord | null | undefined }) {
   const typeLabel = SERVICE_TYPE_LABELS[service.type as keyof typeof SERVICE_TYPE_LABELS] ?? service.type;
   const typeColor = SERVICE_TYPE_COLORS[service.type as keyof typeof SERVICE_TYPE_COLORS] ?? '#9CA3AF';
   const status: ServiceStatus = (latestCheck?.status as ServiceStatus) ?? 'unknown';
