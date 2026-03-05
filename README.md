@@ -14,11 +14,12 @@ HealthPanel provides real-time monitoring of websites and APIs with alerting via
 - **Resource alerts** — Disk and memory usage warnings with configurable thresholds
 - **System info** — Real-time disk, memory, and database status from monitored services
 - **Live dashboard** — WebSocket-based real-time status updates
-- **Screenshot capture** — Puppeteer-powered screenshots on incidents (web services)
+- **Screenshot capture** — Puppeteer-powered screenshots on incidents + daily previews (web services)
+- **Screenshot gallery** — View incident screenshots and daily preview in the dashboard
 - **Log collection** — Remote log fetching from monitored services
 - **HMAC authentication** — Cryptographic auth between monitor and monitored services
 - **External integrations** — Ready-made endpoints for NestJS, Laravel, and Next.js
-- **Data retention** — Automatic cleanup of old health checks and screenshots (30 days)
+- **Data retention** — Automatic cleanup of old health checks and incident screenshots (7 days)
 
 ---
 
@@ -372,6 +373,38 @@ Both endpoints must validate HMAC-SHA256 signatures sent in request headers:
 7. **Resource Check** — After each check, evaluate disk/memory from response data against configured thresholds (default: 90%). If exceeded → WebSocket warning + email alert (30-minute cooldown per service)
 8. **Resolution** — When service returns to `UP` → resolve incident + send recovery email
 9. **Broadcast** — Every check result is broadcast via WebSocket to the dashboard
+10. **Daily Preview** — At 6:00 AM, capture a preview screenshot of each active web service that is UP
+
+### Screenshots
+
+HealthPanel captures screenshots of web services (`web_nextjs` type) in two scenarios:
+
+| Trigger | When | File pattern | Retention |
+|---------|------|-------------|----------|
+| **Incident** | When a DOWN incident is detected | `{serviceId}_{timestamp}.png` | 7 days (auto-cleanup) |
+| **Daily preview** | Cron at 6:00 AM for UP services | `preview_{serviceId}.png` | Overwritten daily |
+
+**Incident screenshots** are:
+- Captured by `ScreenshotService` with Puppeteer (1280×720 viewport)
+- Stored on disk in the `screenshots/` volume
+- Saved as `incident.screenshotPath` in the database
+- Attached as base64 PNG in the alert email
+- Viewable in the dashboard incident detail (click to expand)
+
+**Daily preview screenshots** are:
+- Captured by `ScreenshotSchedulerService` cron (6:00 AM daily)
+- Only for active `web_nextjs` services currently UP
+- Displayed as thumbnails on dashboard service cards
+- Available in full size on the service detail Overview tab
+
+**API endpoints:**
+
+```
+GET /api/screenshots/:filename     # Serve specific screenshot (JWT required)
+GET /api/services/:id/screenshot   # Serve latest daily preview (JWT required)
+```
+
+**Auto-cleanup:** `CleanupService` runs every 2 days at 3:00 AM and deletes incident screenshots older than 7 days. Preview files (`preview_*.png`) are preserved and overwritten daily.
 
 ### SSRF Protection
 
@@ -494,6 +527,9 @@ docker exec -it healthpanel_api pnpm migration:run
 - Ensure Chromium is installed in the container (production Dockerfile handles this)
 - Check `PUPPETEER_EXECUTABLE_PATH` env var
 - Verify the `screenshots/` directory has write permissions
+- Screenshots only work for `web_nextjs` service types
+- Daily previews only capture services that are currently UP
+- Check logs: `docker compose logs api | grep -i screenshot`
 
 ### Email alerts not sending
 

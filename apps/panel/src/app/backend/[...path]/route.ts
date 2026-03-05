@@ -41,6 +41,10 @@ async function proxyRequest(
   if (contentType) {
     responseHeaders.set("content-type", contentType);
   }
+  const cacheControl = apiResponse.headers.get("cache-control");
+  if (cacheControl) {
+    responseHeaders.set("cache-control", cacheControl);
+  }
 
   return new NextResponse(apiResponse.body, {
     status: apiResponse.status,
@@ -50,6 +54,7 @@ async function proxyRequest(
 }
 
 export const GET = proxyRequest;
+export const HEAD = proxyRequest;
 export const POST = proxyRequest;
 export const PUT = proxyRequest;
 export const PATCH = proxyRequest;

@@ -38,6 +38,19 @@ export interface PaginatedIncidents {
   limit: number;
 }
 
+// ─── Screenshot helpers ─────────────────────────────────────────────────────
+
+/** Build URL to fetch a specific screenshot file. */
+export function screenshotUrl(screenshotPath: string): string {
+  const filename = screenshotPath.split("/").pop() ?? screenshotPath;
+  return `/backend/api/screenshots/${encodeURIComponent(filename)}`;
+}
+
+/** Build URL to fetch the daily preview screenshot for a service. */
+export function servicePreviewUrl(serviceId: number): string {
+  return `/backend/api/services/${serviceId}/screenshot`;
+}
+
 // ─── API client ───────────────────────────────────────────────────────────────
 
 export const healthApi = {

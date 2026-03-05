@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { DashboardShell } from '@/components/dashboard-shell';
 import { type ServiceRecord, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, servicesApi, type PaginatedServices } from '@/lib/services-api';
-import { healthApi, type HealthCheckRecord, type PaginatedHealthChecks } from '@/lib/health-api';
+import { healthApi, type HealthCheckRecord, type PaginatedHealthChecks, servicePreviewUrl } from '@/lib/health-api';
 import { useMonitorSocket, type WsHealthUpdate, type WsResourceWarning } from '@/lib/use-monitor-socket';
 
 type ServiceStatus = 'up' | 'down' | 'degraded' | 'unknown';
@@ -83,6 +83,11 @@ function ServiceCard({ service, latestCheck }: { service: ServiceRecord; latestC
           </div>
         </div>
 
+        {/* Preview thumbnail (web services) */}
+        {service.type === 'web_nextjs' && (
+          <ServicePreviewThumb serviceId={service.id} />
+        )}
+
         {/* Resource bars */}
         {(() => {
           const rd = latestCheck?.responseData;
@@ -137,6 +142,31 @@ function ServiceCard({ service, latestCheck }: { service: ServiceRecord; latestC
         </div>
       </div>
     </Link>
+  );
+}
+
+function ServicePreviewThumb({ serviceId }: { serviceId: number }) {
+  const [hasPreview, setHasPreview] = useState(false);
+  const src = servicePreviewUrl(serviceId);
+
+  useEffect(() => {
+    fetch(src, { method: 'HEAD' })
+      .then((res) => setHasPreview(res.ok))
+      .catch(() => setHasPreview(false));
+  }, [src]);
+
+  if (!hasPreview) return null;
+
+  return (
+    <div className="mt-3 overflow-hidden rounded-lg" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt="Service preview"
+        className="h-24 w-full object-cover object-top"
+        loading="lazy"
+      />
+    </div>
   );
 }
 

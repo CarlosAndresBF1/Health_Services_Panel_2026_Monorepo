@@ -76,7 +76,65 @@ export class ScreenshotService {
   }
 
   /**
+   * Capture a daily preview screenshot for a service.
+   * Overwrites the previous preview file for that service.
+   */
+  async capturePreview(url: string, serviceId: number): Promise<string | null> {
+    let browser: import("puppeteer").Browser | null = null;
+
+    try {
+      const puppeteer = await import("puppeteer");
+
+      browser = await puppeteer.default.launch({
+        headless: true,
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+        ],
+      });
+
+      const page = await browser.newPage();
+      await page.setViewport({ width: 1280, height: 720 });
+
+      await page.goto(url, {
+        waitUntil: "networkidle2",
+        timeout: SCREENSHOT_TIMEOUT_MS,
+      });
+
+      const filename = `preview_${serviceId}.png`;
+      const filePath = path.join(SCREENSHOT_DIR, filename);
+
+      await page.screenshot({ path: filePath, fullPage: false });
+
+      this.logger.log(`Preview screenshot captured: ${filePath}`);
+      return filePath;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to capture preview for service ${serviceId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    } finally {
+      if (browser) {
+        try {
+          await browser.close();
+        } catch {
+          // ignore close errors
+        }
+      }
+    }
+  }
+
+  /** Check if a preview screenshot exists for a service. */
+  hasPreview(serviceId: number): boolean {
+    const filePath = path.join(SCREENSHOT_DIR, `preview_${serviceId}.png`);
+    return fs.existsSync(filePath);
+  }
+
+  /**
    * Clean up old screenshots older than the given age in milliseconds.
+   * Does NOT delete preview files (preview_*.png).
    */
   async cleanup(maxAgeMs = 30 * 24 * 60 * 60 * 1000): Promise<number> {
     let deleted = 0;
@@ -85,7 +143,7 @@ export class ScreenshotService {
     try {
       const files = fs.readdirSync(SCREENSHOT_DIR);
       for (const file of files) {
-        if (!file.endsWith(".png")) continue;
+        if (!file.endsWith(".png") || file.startsWith("preview_")) continue;
         const filePath = path.join(SCREENSHOT_DIR, file);
         const stat = fs.statSync(filePath);
         if (now - stat.mtimeMs > maxAgeMs) {

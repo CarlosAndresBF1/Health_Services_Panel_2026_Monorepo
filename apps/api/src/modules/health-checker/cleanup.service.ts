@@ -26,7 +26,7 @@ export class CleanupService {
     private readonly healthCheckRepository: Repository<HealthCheck>,
   ) {}
 
-  @Cron('0 3 */2 * *')
+  @Cron("0 3 */2 * *")
   async handleCleanup(): Promise<void> {
     this.logger.log("Starting scheduled data cleanup…");
 
@@ -71,6 +71,7 @@ export class CleanupService {
 
   /**
    * Delete screenshot files older than RETENTION_DAYS.
+   * Skips preview files (preview_*.png) which are managed by the daily scheduler.
    */
   async cleanupOldScreenshots(): Promise<number> {
     try {
@@ -83,7 +84,7 @@ export class CleanupService {
       let deleted = 0;
 
       for (const file of files) {
-        if (!file.endsWith(".png")) continue;
+        if (!file.endsWith(".png") || file.startsWith("preview_")) continue;
 
         const filePath = path.join(SCREENSHOTS_DIR, file);
         const stats = fs.statSync(filePath);

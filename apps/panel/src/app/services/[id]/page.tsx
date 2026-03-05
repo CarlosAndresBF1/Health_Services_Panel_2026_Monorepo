@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboard-shell';
 import { servicesApi, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, type ServiceRecord } from '@/lib/services-api';
-import { healthApi, type HealthCheckRecord, type IncidentRecord, type PaginatedHealthChecks, type PaginatedIncidents } from '@/lib/health-api';
+import { healthApi, type HealthCheckRecord, type IncidentRecord, type PaginatedHealthChecks, type PaginatedIncidents, screenshotUrl, servicePreviewUrl } from '@/lib/health-api';
 import { useMonitorSocket, type WsHealthUpdate, type WsIncidentNew, type WsIncidentResolved, type WsResourceWarning } from '@/lib/use-monitor-socket';
 import { LogViewer } from '@/components/log-viewer';
 
@@ -308,7 +308,76 @@ function OverviewTab({
           </div>
         );
       })()}
+
+      {/* Daily preview screenshot (web services only) */}
+      {service.type === 'web_nextjs' && (
+        <ScreenshotPreview serviceId={service.id} />
+      )}
     </div>
+  );
+}
+
+function ScreenshotPreview({ serviceId }: { serviceId: number }) {
+  const [hasPreview, setHasPreview] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const previewSrc = servicePreviewUrl(serviceId);
+
+  useEffect(() => {
+    // Check if preview exists by attempting a HEAD-like fetch
+    fetch(previewSrc, { method: 'HEAD' })
+      .then((res) => setHasPreview(res.ok))
+      .catch(() => setHasPreview(false));
+  }, [previewSrc]);
+
+  if (!hasPreview) return null;
+
+  return (
+    <>
+      <div
+        className="rounded-xl border p-6 lg:col-span-2"
+        style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
+      >
+        <h3 className="mb-4 text-sm font-semibold text-text-primary">📸 Daily Preview</h3>
+        <p className="mb-3 text-xs text-text-muted">Latest screenshot captured while the service was UP.</p>
+        <button
+          onClick={() => setExpanded(true)}
+          className="block overflow-hidden rounded-lg border transition-all hover:border-accent/40"
+          style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={previewSrc}
+            alt="Daily service preview"
+            className="w-full max-h-80 object-cover object-top"
+            loading="lazy"
+          />
+        </button>
+      </div>
+
+      {/* Lightbox */}
+      {expanded && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setExpanded(false)}
+        >
+          <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setExpanded(false)}
+              className="absolute -top-3 -right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm text-white transition-colors hover:bg-white/20"
+              style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+            >
+              ✕
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewSrc}
+              alt="Daily preview fullscreen"
+              className="max-h-[85vh] max-w-[85vw] rounded-lg shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -439,6 +508,7 @@ function IncidentsTab({
 }) {
   const pageSize = 20;
   const totalPages = Math.ceil(total / pageSize);
+  const [expandedScreenshot, setExpandedScreenshot] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -516,10 +586,54 @@ function IncidentsTab({
                   <span>Alert email sent {incident.emailSentAt ? `at ${new Date(incident.emailSentAt).toLocaleString()}` : ''}</span>
                 </div>
               )}
+
+              {/* Screenshot thumbnail */}
+              {incident.screenshotPath && (
+                <div className="mt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.75rem' }}>
+                  <p className="mb-2 font-mono text-xs text-text-muted uppercase tracking-wider">📸 Screenshot at incident time</p>
+                  <button
+                    onClick={() => setExpandedScreenshot(screenshotUrl(incident.screenshotPath!))}
+                    className="block overflow-hidden rounded-lg border transition-all hover:border-accent/40"
+                    style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={screenshotUrl(incident.screenshotPath)}
+                      alt={`Screenshot at incident #${incident.id}`}
+                      className="h-36 w-64 object-cover object-top"
+                      loading="lazy"
+                    />
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
+
+      {/* Screenshot lightbox */}
+      {expandedScreenshot && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setExpandedScreenshot(null)}
+        >
+          <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setExpandedScreenshot(null)}
+              className="absolute -top-3 -right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm text-white transition-colors hover:bg-white/20"
+              style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+            >
+              ✕
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={expandedScreenshot}
+              alt="Screenshot fullscreen"
+              className="max-h-[85vh] max-w-[85vw] rounded-lg shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
