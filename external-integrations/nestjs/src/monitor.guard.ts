@@ -64,7 +64,7 @@ export class MonitorGuard implements CanActivate {
 
     // 3. Recalculate the HMAC signature
     const method = request.method.toUpperCase();
-    const path = request.originalUrl.split("?")[0] ?? request.originalUrl;
+    const path = request.originalUrl ?? "/";
     const payload = `${timestamp}:${method}:${path}`;
 
     const expected = createHmac("sha256", secret).update(payload).digest("hex");
