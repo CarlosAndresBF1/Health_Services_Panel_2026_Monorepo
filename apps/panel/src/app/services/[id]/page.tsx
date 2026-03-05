@@ -38,6 +38,19 @@ const STATUS_LABEL: Record<string, string> = {
   unknown: 'UNKNOWN',
 };
 
+const DATE_FMT: Intl.DateTimeFormatOptions = {
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit',
+  hour12: false,
+};
+
+function formatDateDual(iso: string): string {
+  const d = new Date(iso);
+  const utc = d.toLocaleString('en-GB', { ...DATE_FMT, timeZone: 'UTC' });
+  const bog = d.toLocaleString('en-GB', { ...DATE_FMT, timeZone: 'America/Bogota' });
+  return `${utc} UTC  ·  ${bog} COT`;
+}
+
 function formatDuration(start: string, end: string | null): string {
   const ms = (end ? new Date(end).getTime() : Date.now()) - new Date(start).getTime();
   const seconds = Math.floor(ms / 1000);
@@ -134,7 +147,7 @@ function OverviewTab({
         <DetailRow label="Check interval" value={`${service.checkIntervalSeconds}s`} />
         <DetailRow label="Status" value={<span className={service.isActive ? 'text-status-up' : 'text-text-muted'}>{service.isActive ? 'Active' : 'Inactive'}</span>} />
         <DetailRow label="Alerts" value={service.alertsEnabled ? '🔔 Enabled' : '🔕 Disabled'} />
-        <DetailRow label="Created" value={new Date(service.createdAt).toLocaleString()} />
+        <DetailRow label="Created" value={formatDateDual(service.createdAt)} />
       </div>
 
       {/* Endpoints */}
@@ -211,7 +224,7 @@ function OverviewTab({
               {latestCheck.statusCode != null && (
                 <span>HTTP <strong className="text-text-primary">{latestCheck.statusCode}</strong></span>
               )}
-              <span>Last check: <strong className="text-text-primary">{new Date(latestCheck.checkedAt).toLocaleString()}</strong></span>
+              <span>Last check: <strong className="text-text-primary">{formatDateDual(latestCheck.checkedAt)}</strong></span>
             </div>
           ) : (
             <span className="text-sm text-text-muted">No health check data yet — click &quot;Check Now&quot; or wait for auto-check.</span>
@@ -497,7 +510,7 @@ function HealthChecksTab({
                 style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
               >
                 <td className="px-4 py-3 font-mono text-xs text-text-muted whitespace-nowrap">
-                  {new Date(check.checkedAt).toLocaleString()}
+                  {formatDateDual(check.checkedAt)}
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={check.status} />
@@ -621,9 +634,9 @@ function IncidentsTab({
                     <span className="font-mono text-xs text-text-muted">#{incident.id}</span>
                   </div>
                   <div className="flex flex-wrap gap-4 text-xs text-text-muted">
-                    <span>Started: <strong className="text-text-primary">{new Date(incident.startedAt).toLocaleString()}</strong></span>
+                    <span>Started: <strong className="text-text-primary">{formatDateDual(incident.startedAt)}</strong></span>
                     {incident.resolvedAt && (
-                      <span>Resolved: <strong className="text-text-primary">{new Date(incident.resolvedAt).toLocaleString()}</strong></span>
+                      <span>Resolved: <strong className="text-text-primary">{formatDateDual(incident.resolvedAt)}</strong></span>
                     )}
                   </div>
                 </div>
@@ -637,7 +650,7 @@ function IncidentsTab({
               {incident.emailSent && (
                 <div className="mt-3 flex items-center gap-2 text-xs text-text-muted" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.75rem' }}>
                   <span>📧</span>
-                  <span>Alert email sent {incident.emailSentAt ? `at ${new Date(incident.emailSentAt).toLocaleString()}` : ''}</span>
+                  <span>Alert email sent {incident.emailSentAt ? `at ${formatDateDual(incident.emailSentAt)}` : ''}</span>
                 </div>
               )}
 

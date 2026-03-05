@@ -379,7 +379,7 @@ export class AlertsService {
         </tr>
         <tr style="border-top:1px solid rgba(255,255,255,0.06);">
           <td style="color:#9CA3AF;font-size:12px;text-transform:uppercase;padding:8px 0;font-family:monospace;">Detected at</td>
-          <td style="color:#F3F4F6;font-size:14px;text-align:right;padding:8px 0;">${this.escapeHtml(params.timestamp)}</td>
+          <td style="color:#F3F4F6;font-size:14px;text-align:right;padding:8px 0;">${this.formatDateDual(params.timestamp)}</td>
         </tr>
       </table>
 
@@ -433,7 +433,7 @@ export class AlertsService {
         </tr>
         <tr style="border-top:1px solid rgba(255,255,255,0.06);">
           <td style="color:#9CA3AF;font-size:12px;text-transform:uppercase;padding:8px 0;font-family:monospace;">Recovered at</td>
-          <td style="color:#F3F4F6;font-size:14px;text-align:right;padding:8px 0;">${this.escapeHtml(params.resolvedAt)}</td>
+          <td style="color:#F3F4F6;font-size:14px;text-align:right;padding:8px 0;">${this.formatDateDual(params.resolvedAt)}</td>
         </tr>
         <tr style="border-top:1px solid rgba(255,255,255,0.06);">
           <td style="color:#9CA3AF;font-size:12px;text-transform:uppercase;padding:8px 0;font-family:monospace;">Downtime</td>
@@ -458,6 +458,25 @@ export class AlertsService {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  private formatDateDual(iso: string): string {
+    const d = new Date(iso);
+    const fmt: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    };
+    const utc = d.toLocaleString("en-GB", { ...fmt, timeZone: "UTC" });
+    const bog = d.toLocaleString("en-GB", {
+      ...fmt,
+      timeZone: "America/Bogota",
+    });
+    return `${utc} UTC &middot; ${bog} COT`;
+  }
 
   private escapeHtml(str: string): string {
     return str
