@@ -25,6 +25,7 @@ WORKDIR /app
 # Copy installed node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 
 # Copy tsconfig base
 COPY tsconfig.base.json ./
@@ -32,6 +33,10 @@ COPY tsconfig.base.json ./
 # Copy api source and config files
 COPY apps/api/ ./apps/api/
 COPY packages/ ./packages/
+
+# Build shared package first (its dist/ is excluded by .dockerignore)
+WORKDIR /app/packages/shared
+RUN pnpm run build
 
 WORKDIR /app/apps/api
 

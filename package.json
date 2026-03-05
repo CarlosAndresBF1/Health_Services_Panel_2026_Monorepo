@@ -29,7 +29,15 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "docker:build": "docker compose build"
+    "docker:build": "docker compose build",
+    "docker:prod:up": "docker compose -f docker-compose.prod.yml up -d",
+    "docker:prod:down": "docker compose -f docker-compose.prod.yml down",
+    "docker:prod:logs": "docker compose -f docker-compose.prod.yml logs -f",
+    "docker:prod:build": "docker compose -f docker-compose.prod.yml build",
+    "migration:generate": "pnpm --filter=@healthpanel/api run migration:generate",
+    "migration:run": "pnpm --filter=@healthpanel/api run migration:run",
+    "migration:revert": "pnpm --filter=@healthpanel/api run migration:revert",
+    "seed:run": "pnpm --filter=@healthpanel/api run seed:run"
   },
   "devDependencies": {},
   "dependencies": {}
