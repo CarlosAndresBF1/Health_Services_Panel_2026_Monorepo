@@ -75,7 +75,7 @@ class MonitorAuthMiddleware
 
         // 4. Recalculate the HMAC signature
         $method = strtoupper($request->method());
-        $path = '/' . ltrim($request->path(), '/');
+        $path = '/' . ltrim($request->getRequestUri(), '/');
         $payload = "{$timestamp}:{$method}:{$path}";
 
         $expected = hash_hmac('sha256', $payload, $secret);
