@@ -999,11 +999,11 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
         name: form.name,
         url: form.url,
         type: form.type,
-        healthEndpoint: form.healthEndpoint || undefined,
-        logsEndpoint: form.logsEndpoint || undefined,
         checkIntervalSeconds: form.checkIntervalSeconds,
         isActive: form.isActive,
         alertsEnabled: form.alertsEnabled,
+        ...(form.healthEndpoint ? { healthEndpoint: form.healthEndpoint } : {}),
+        ...(form.logsEndpoint ? { logsEndpoint: form.logsEndpoint } : {}),
       };
       const updated = await servicesApi.update(serviceId, payload);
       setService(updated);
