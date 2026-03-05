@@ -10,11 +10,15 @@ import {
   StreamableFile,
   UseGuards,
 } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
 import * as fs from "fs";
 import * as path from "path";
+import { IsNull, Repository } from "typeorm";
 
+import { Service } from "../../database/entities/service.entity";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ScreenshotSchedulerService } from "./screenshot-scheduler.service";
+import { ScreenshotService } from "./screenshot.service";
 
 const SCREENSHOT_DIR = path.resolve(process.cwd(), "screenshots");
 
@@ -26,6 +30,9 @@ const SAFE_FILENAME = /^[a-zA-Z0-9_\-]+\.png$/;
 export class ScreenshotController {
   constructor(
     private readonly screenshotScheduler: ScreenshotSchedulerService,
+    private readonly screenshotService: ScreenshotService,
+    @InjectRepository(Service)
+    private readonly serviceRepository: Repository<Service>,
   ) {}
 
   /**
@@ -40,6 +47,32 @@ export class ScreenshotController {
       ...result,
     };
   }
+  /**
+   * POST /api/services/:id/capture-screenshot
+   * Manually trigger a preview screenshot capture for a single service.
+   */
+  @Post("services/:id/capture-screenshot")
+  async captureService(@Param("id", ParseIntPipe) id: number) {
+    const service = await this.serviceRepository.findOne({
+      where: { id, isActive: true, deletedAt: IsNull() },
+    });
+
+    if (!service) {
+      throw new NotFoundException("Service not found");
+    }
+
+    const result = await this.screenshotService.capturePreview(
+      service.url,
+      service.id,
+    );
+
+    if (!result) {
+      throw new BadRequestException("Failed to capture screenshot");
+    }
+
+    return { message: "Screenshot captured", serviceId: service.id };
+  }
+
   /**
    * GET /api/screenshots/:filename
    * Serve a specific screenshot file by name.

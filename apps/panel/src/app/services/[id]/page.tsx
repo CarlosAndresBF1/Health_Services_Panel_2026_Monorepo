@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboard-shell';
 import { servicesApi, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, type ServiceRecord } from '@/lib/services-api';
-import { healthApi, type HealthCheckRecord, type IncidentRecord, type PaginatedHealthChecks, type PaginatedIncidents, screenshotUrl, servicePreviewUrl } from '@/lib/health-api';
+import { healthApi, type HealthCheckRecord, type IncidentRecord, type PaginatedHealthChecks, type PaginatedIncidents, screenshotUrl, servicePreviewUrl, captureServiceScreenshot } from '@/lib/health-api';
 import { useMonitorSocket, type WsHealthUpdate, type WsIncidentNew, type WsIncidentResolved, type WsResourceWarning } from '@/lib/use-monitor-socket';
 import { LogViewer } from '@/components/log-viewer';
 
@@ -320,16 +320,32 @@ function OverviewTab({
 function ScreenshotPreview({ serviceId }: { serviceId: number }) {
   const [hasPreview, setHasPreview] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const [imgKey, setImgKey] = useState(0);
   const previewSrc = servicePreviewUrl(serviceId);
 
-  useEffect(() => {
-    // Check if preview exists by attempting a HEAD-like fetch
+  const checkPreview = useCallback(() => {
     fetch(previewSrc, { method: 'HEAD' })
       .then((res) => setHasPreview(res.ok))
       .catch(() => setHasPreview(false));
   }, [previewSrc]);
 
-  if (!hasPreview) return null;
+  useEffect(() => {
+    checkPreview();
+  }, [checkPreview]);
+
+  const handleCapture = async () => {
+    setCapturing(true);
+    try {
+      await captureServiceScreenshot(serviceId);
+      setImgKey((k) => k + 1);
+      setHasPreview(true);
+    } catch {
+      // silently fail — the user sees no new image
+    } finally {
+      setCapturing(false);
+    }
+  };
 
   return (
     <>
@@ -337,21 +353,47 @@ function ScreenshotPreview({ serviceId }: { serviceId: number }) {
         className="rounded-xl border p-6 lg:col-span-2"
         style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
       >
-        <h3 className="mb-4 text-sm font-semibold text-text-primary">📸 Daily Preview</h3>
-        <p className="mb-3 text-xs text-text-muted">Latest screenshot captured while the service was UP.</p>
-        <button
-          onClick={() => setExpanded(true)}
-          className="block overflow-hidden rounded-lg border transition-all hover:border-accent/40"
-          style={{ borderColor: 'rgba(255,255,255,0.1)' }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={previewSrc}
-            alt="Daily service preview"
-            className="w-full max-h-80 object-cover object-top"
-            loading="lazy"
-          />
-        </button>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-text-primary">📸 Daily Preview</h3>
+          <button
+            onClick={handleCapture}
+            disabled={capturing}
+            className="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 disabled:opacity-50"
+            style={{ backgroundColor: '#C8A951', color: '#0A0F1A' }}
+          >
+            {capturing ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Capturing…
+              </span>
+            ) : (
+              '📷 Capture Now'
+            )}
+          </button>
+        </div>
+        {hasPreview ? (
+          <>
+            <p className="mb-3 text-xs text-text-muted">Latest screenshot captured while the service was UP.</p>
+            <button
+              onClick={() => setExpanded(true)}
+              className="block overflow-hidden rounded-lg border transition-all hover:border-accent/40"
+              style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`${previewSrc}?v=${imgKey}`}
+                alt="Daily service preview"
+                className="w-full max-h-80 object-cover object-top"
+                loading="lazy"
+              />
+            </button>
+          </>
+        ) : (
+          <p className="text-sm text-text-muted">No preview available yet. Click &quot;Capture Now&quot; to take one.</p>
+        )}
       </div>
 
       {/* Lightbox */}
@@ -370,7 +412,7 @@ function ScreenshotPreview({ serviceId }: { serviceId: number }) {
             </button>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={previewSrc}
+              src={`${previewSrc}?v=${imgKey}`}
               alt="Daily preview fullscreen"
               className="max-h-[85vh] max-w-[85vw] rounded-lg shadow-2xl"
             />

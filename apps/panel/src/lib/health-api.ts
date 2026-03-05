@@ -51,6 +51,15 @@ export function servicePreviewUrl(serviceId: number): string {
   return `/backend/api/services/${serviceId}/screenshot`;
 }
 
+// ─── Screenshot actions ─────────────────────────────────────────────────────
+
+/** Trigger an on-demand preview screenshot capture for a service. */
+export function captureServiceScreenshot(
+  serviceId: number,
+): Promise<{ message: string; serviceId: number }> {
+  return apiClient.post(`/api/services/${serviceId}/capture-screenshot`);
+}
+
 // ─── API client ───────────────────────────────────────────────────────────────
 
 export const healthApi = {
