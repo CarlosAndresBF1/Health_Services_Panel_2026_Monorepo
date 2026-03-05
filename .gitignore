@@ -93,9 +93,9 @@ temp/
 *.bak
 *.backup
 
-# ─── Package manager locks (keep only npm's) ─────────────────────────────────
+# ─── Package manager locks ────────────────────────────────────────────────────
 yarn.lock
-pnpm-lock.yaml
+# pnpm-lock.yaml is tracked — required for Docker --frozen-lockfile builds
 # package-lock.json is kept
 
 # ─── TypeScript ──────────────────────────────────────────────────────────────
