@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Header,
   NotFoundException,
   BadRequestException,
@@ -13,6 +14,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { ScreenshotSchedulerService } from "./screenshot-scheduler.service";
 
 const SCREENSHOT_DIR = path.resolve(process.cwd(), "screenshots");
 
@@ -22,6 +24,22 @@ const SAFE_FILENAME = /^[a-zA-Z0-9_\-]+\.png$/;
 @Controller("api")
 @UseGuards(JwtAuthGuard)
 export class ScreenshotController {
+  constructor(
+    private readonly screenshotScheduler: ScreenshotSchedulerService,
+  ) {}
+
+  /**
+   * POST /api/screenshots/capture-all
+   * Manually trigger the daily preview capture for all active web services.
+   */
+  @Post("screenshots/capture-all")
+  async captureAll() {
+    const result = await this.screenshotScheduler.captureDaily();
+    return {
+      message: "Daily preview capture completed",
+      ...result,
+    };
+  }
   /**
    * GET /api/screenshots/:filename
    * Serve a specific screenshot file by name.

@@ -29,7 +29,7 @@ export class ScreenshotSchedulerService {
   ) {}
 
   @Cron("0 6 * * *")
-  async captureDaily(): Promise<void> {
+  async captureDaily(): Promise<{ captured: number; skipped: number }> {
     this.logger.log("Starting daily preview screenshot capture…");
 
     const services = await this.serviceRepository.find({
@@ -42,7 +42,7 @@ export class ScreenshotSchedulerService {
 
     if (services.length === 0) {
       this.logger.log("No active web services found, skipping");
-      return;
+      return { captured: 0, skipped: 0 };
     }
 
     let captured = 0;
@@ -78,5 +78,7 @@ export class ScreenshotSchedulerService {
     this.logger.log(
       `Daily preview capture complete: ${captured} captured, ${skipped} skipped`,
     );
+
+    return { captured, skipped };
   }
 }
