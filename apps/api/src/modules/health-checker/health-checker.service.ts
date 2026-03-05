@@ -1,16 +1,35 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository } from "typeorm";
 import axios, { AxiosError } from "axios";
 
-import { HealthStatus } from "@healthpanel/shared";
+import {
+  HealthStatus,
+  DEFAULT_DISK_THRESHOLD_PERCENT,
+  DEFAULT_MEMORY_THRESHOLD_PERCENT,
+  RESOURCE_ALERT_COOLDOWN_MS,
+} from "@healthpanel/shared";
 
 import { CryptoService } from "../../common/crypto.service";
 import { HmacSignerService } from "../../common/hmac-signer.service";
 import { HealthCheck } from "../../database/entities/health-check.entity";
 import { Service } from "../../database/entities/service.entity";
+import { Setting } from "../../database/entities/setting.entity";
 import { IncidentService } from "./incident.service";
 import { MonitorGateway } from "./monitor.gateway";
+
+export const RESOURCE_WARNING_EVENT = "resource.warning";
+
+export interface ResourceWarningEvent {
+  service: Service;
+  warnings: Array<{
+    type: "disk" | "memory";
+    usedPercent: number;
+    threshold: number;
+    detail: string;
+  }>;
+}
 
 const DEGRADED_THRESHOLD_MS = 3000;
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -27,22 +46,28 @@ export interface CheckResult {
   responseTimeMs: number;
   statusCode: number | null;
   errorMessage: string | null;
+  responseData: Record<string, unknown> | null;
 }
 
 @Injectable()
 export class HealthCheckerService implements OnModuleInit {
   private readonly logger = new Logger(HealthCheckerService.name);
   private timers = new Map<number, NodeJS.Timeout>();
+  /** Tracks last resource alert time per service to enforce cooldown */
+  private resourceAlertCooldowns = new Map<number, number>();
 
   constructor(
     @InjectRepository(Service)
     private readonly serviceRepository: Repository<Service>,
     @InjectRepository(HealthCheck)
     private readonly healthCheckRepository: Repository<HealthCheck>,
+    @InjectRepository(Setting)
+    private readonly settingRepository: Repository<Setting>,
     private readonly cryptoService: CryptoService,
     private readonly hmacSigner: HmacSignerService,
     private readonly incidentService: IncidentService,
     private readonly monitorGateway: MonitorGateway,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     // SchedulerRegistry injected to ensure @nestjs/schedule module is active
   }
@@ -141,6 +166,7 @@ export class HealthCheckerService implements OnModuleInit {
       responseTimeMs: result.responseTimeMs,
       statusCode: result.statusCode,
       errorMessage: result.errorMessage,
+      responseData: result.responseData,
       checkedAt: new Date(),
     });
 
@@ -153,10 +179,16 @@ export class HealthCheckerService implements OnModuleInit {
       responseTimeMs: result.responseTimeMs,
       statusCode: result.statusCode ?? 0,
       checkedAt: saved.checkedAt.toISOString(),
+      responseData: result.responseData,
     });
 
     // Incident detection
     await this.incidentService.evaluate(svc, result.status);
+
+    // Resource threshold evaluation (disk/memory)
+    if (result.responseData) {
+      await this.evaluateResources(svc, result.responseData);
+    }
 
     this.logger.debug(
       `Service ${svc.name}: ${result.status} (${result.responseTimeMs}ms)`,
@@ -184,6 +216,11 @@ export class HealthCheckerService implements OnModuleInit {
       const elapsed = Date.now() - start;
       const statusCode = response.status;
 
+      const responseData =
+        typeof response.data === "object" && response.data !== null
+          ? (response.data as Record<string, unknown>)
+          : null;
+
       if (statusCode >= 200 && statusCode < 300) {
         return {
           status:
@@ -193,6 +230,7 @@ export class HealthCheckerService implements OnModuleInit {
           responseTimeMs: elapsed,
           statusCode,
           errorMessage: null,
+          responseData,
         };
       }
 
@@ -201,6 +239,7 @@ export class HealthCheckerService implements OnModuleInit {
         responseTimeMs: elapsed,
         statusCode,
         errorMessage: `HTTP ${statusCode}`,
+        responseData,
       };
     } catch (err) {
       const elapsed = Date.now() - start;
@@ -211,6 +250,7 @@ export class HealthCheckerService implements OnModuleInit {
         responseTimeMs: elapsed,
         statusCode: null,
         errorMessage: axiosError.message ?? "Unknown error",
+        responseData: null,
       };
     }
   }
@@ -261,6 +301,106 @@ export class HealthCheckerService implements OnModuleInit {
       /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
     ) {
       throw new Error(`SSRF blocked: requests to private IPs are not allowed`);
+    }
+  }
+
+  // ─── Resource threshold evaluation ─────────────────────────────────────
+
+  private async getThreshold(key: string, fallback: number): Promise<number> {
+    const setting = await this.settingRepository.findOne({ where: { key } });
+    if (!setting) return fallback;
+    const parsed = parseInt(setting.value, 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  }
+
+  /**
+   * Evaluate disk and memory from responseData against configured thresholds.
+   * If any threshold is exceeded and cooldown has passed, emit a resource warning.
+   */
+  async evaluateResources(
+    service: Service,
+    responseData: Record<string, unknown>,
+  ): Promise<void> {
+    if (!service.alertsEnabled) return;
+
+    const disk = responseData["disk"] as
+      | {
+          used_percent?: number;
+          used_gb?: number;
+          total_gb?: number;
+          free_gb?: number;
+        }
+      | undefined;
+    const memory = responseData["memory"] as
+      | {
+          used_percent?: number;
+          used_mb?: number;
+          total_mb?: number;
+          free_mb?: number;
+        }
+      | undefined;
+
+    if (!disk && !memory) return;
+
+    const diskThreshold = await this.getThreshold(
+      "resource_disk_threshold_percent",
+      DEFAULT_DISK_THRESHOLD_PERCENT,
+    );
+    const memoryThreshold = await this.getThreshold(
+      "resource_memory_threshold_percent",
+      DEFAULT_MEMORY_THRESHOLD_PERCENT,
+    );
+
+    const warnings: ResourceWarningEvent["warnings"] = [];
+
+    if (disk?.used_percent != null && disk.used_percent >= diskThreshold) {
+      warnings.push({
+        type: "disk",
+        usedPercent: disk.used_percent,
+        threshold: diskThreshold,
+        detail: `${disk.used_gb?.toFixed(1) ?? "?"} GB used / ${disk.total_gb?.toFixed(1) ?? "?"} GB total (${disk.free_gb?.toFixed(1) ?? "?"} GB free)`,
+      });
+    }
+
+    if (
+      memory?.used_percent != null &&
+      memory.used_percent >= memoryThreshold
+    ) {
+      warnings.push({
+        type: "memory",
+        usedPercent: memory.used_percent,
+        threshold: memoryThreshold,
+        detail: `${memory.used_mb?.toFixed(0) ?? "?"} MB used / ${memory.total_mb?.toFixed(0) ?? "?"} MB total (${memory.free_mb?.toFixed(0) ?? "?"} MB free)`,
+      });
+    }
+
+    if (warnings.length === 0) return;
+
+    // Cooldown check — avoid spamming alerts
+    const lastAlert = this.resourceAlertCooldowns.get(service.id) ?? 0;
+    const now = Date.now();
+    const cooldownMs = RESOURCE_ALERT_COOLDOWN_MS;
+
+    // Always emit WebSocket warning (real-time UI)
+    this.monitorGateway.emitResourceWarning({
+      serviceId: service.id,
+      serviceName: service.name,
+      warnings,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Only emit email event if cooldown has passed
+    if (now - lastAlert >= cooldownMs) {
+      this.resourceAlertCooldowns.set(service.id, now);
+
+      this.logger.warn(
+        `⚠️ Resource warning for "${service.name}": ${warnings.map((w) => `${w.type} at ${w.usedPercent.toFixed(1)}%`).join(", ")}`,
+      );
+
+      this.eventEmitter.emit(RESOURCE_WARNING_EVENT, {
+        service,
+        warnings,
+      } satisfies ResourceWarningEvent);
     }
   }
 }

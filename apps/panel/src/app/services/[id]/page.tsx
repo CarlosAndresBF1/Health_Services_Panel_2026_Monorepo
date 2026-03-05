@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboard-shell';
 import { servicesApi, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, type ServiceRecord } from '@/lib/services-api';
 import { healthApi, type HealthCheckRecord, type IncidentRecord, type PaginatedHealthChecks, type PaginatedIncidents } from '@/lib/health-api';
-import { useMonitorSocket, type WsHealthUpdate, type WsIncidentNew, type WsIncidentResolved } from '@/lib/use-monitor-socket';
+import { useMonitorSocket, type WsHealthUpdate, type WsIncidentNew, type WsIncidentResolved, type WsResourceWarning } from '@/lib/use-monitor-socket';
 import { LogViewer } from '@/components/log-viewer';
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
@@ -215,6 +215,99 @@ function OverviewTab({
           )}
         </div>
       </div>
+
+      {/* System info from responseData */}
+      {latestCheck?.responseData && (() => {
+        const data = latestCheck.responseData as Record<string, unknown>;
+        const disk = data.disk as { total_gb?: number; free_gb?: number; used_gb?: number; used_percent?: number } | undefined;
+        const memory = data.memory as { total_mb?: number; free_mb?: number; used_mb?: number; used_percent?: number } | undefined;
+        const db = data.db as { connected?: boolean; type?: string } | undefined;
+        const hasSystemInfo = disk || memory || db;
+
+        if (!hasSystemInfo) return null;
+
+        return (
+          <div
+            className="rounded-xl border p-6 lg:col-span-2"
+            style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
+          >
+            <h3 className="mb-4 text-sm font-semibold text-text-primary">System info</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Disk */}
+              {disk && (
+                <div className="rounded-lg p-4" style={{ backgroundColor: '#0A0F1A', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <p className="mb-2 font-mono text-xs text-text-muted uppercase tracking-wider">Disk</p>
+                  <div className="mb-2">
+                    <div className="flex justify-between text-xs text-text-muted mb-1">
+                      <span>{disk.used_gb?.toFixed(1) ?? '–'} GB used</span>
+                      <span>{disk.total_gb?.toFixed(1) ?? '–'} GB total</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                      <div
+                        className="h-2 rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(disk.used_percent ?? 0, 100)}%`,
+                          backgroundColor: (disk.used_percent ?? 0) > 90 ? '#EF4444' : (disk.used_percent ?? 0) > 75 ? '#F59E0B' : '#22C55E',
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-right text-xs font-medium" style={{ color: (disk.used_percent ?? 0) > 90 ? '#EF4444' : (disk.used_percent ?? 0) > 75 ? '#F59E0B' : '#22C55E' }}>
+                    {disk.used_percent?.toFixed(1) ?? '–'}% used · {disk.free_gb?.toFixed(1) ?? '–'} GB free
+                  </p>
+                </div>
+              )}
+
+              {/* Memory */}
+              {memory && (
+                <div className="rounded-lg p-4" style={{ backgroundColor: '#0A0F1A', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <p className="mb-2 font-mono text-xs text-text-muted uppercase tracking-wider">Memory</p>
+                  <div className="mb-2">
+                    <div className="flex justify-between text-xs text-text-muted mb-1">
+                      <span>{memory.used_mb?.toFixed(0) ?? '–'} MB used</span>
+                      <span>{memory.total_mb?.toFixed(0) ?? '–'} MB total</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                      <div
+                        className="h-2 rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(memory.used_percent ?? 0, 100)}%`,
+                          backgroundColor: (memory.used_percent ?? 0) > 90 ? '#EF4444' : (memory.used_percent ?? 0) > 75 ? '#F59E0B' : '#22C55E',
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-right text-xs font-medium" style={{ color: (memory.used_percent ?? 0) > 90 ? '#EF4444' : (memory.used_percent ?? 0) > 75 ? '#F59E0B' : '#22C55E' }}>
+                    {memory.used_percent?.toFixed(1) ?? '–'}% used · {memory.free_mb?.toFixed(0) ?? '–'} MB free
+                  </p>
+                </div>
+              )}
+
+              {/* Database */}
+              {db && (
+                <div className="rounded-lg p-4" style={{ backgroundColor: '#0A0F1A', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <p className="mb-2 font-mono text-xs text-text-muted uppercase tracking-wider">Database</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span
+                      className="inline-block h-2.5 w-2.5 rounded-full"
+                      style={{
+                        backgroundColor: db.connected ? '#22C55E' : '#EF4444',
+                        boxShadow: `0 0 6px ${db.connected ? '#22C55E' : '#EF4444'}`,
+                      }}
+                    />
+                    <span className="text-sm font-medium" style={{ color: db.connected ? '#22C55E' : '#EF4444' }}>
+                      {db.connected ? 'Connected' : 'Disconnected'}
+                    </span>
+                  </div>
+                  {db.type && (
+                    <p className="mt-2 text-xs text-text-muted">Engine: <span className="text-text-primary">{db.type}</span></p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -483,6 +576,7 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
   // Latest check for overview
   const [latestCheck, setLatestCheck] = useState<HealthCheckRecord | null>(null);
   const [checking, setChecking] = useState(false);
+  const [resourceWarning, setResourceWarning] = useState<WsResourceWarning | null>(null);
 
   // Load service
   useEffect(() => {
@@ -584,6 +678,13 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
       },
       [serviceId],
     ),
+    onResourceWarning: useCallback(
+      (data: WsResourceWarning) => {
+        if (data.serviceId !== serviceId) return;
+        setResourceWarning(data);
+      },
+      [serviceId],
+    ),
   });
 
   // Manual check
@@ -665,6 +766,35 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* Tab content */}
+
+      {/* Resource warning banner */}
+      {resourceWarning && (
+        <div
+          className="mb-4 flex items-start gap-3 rounded-lg border px-4 py-3 text-sm"
+          style={{
+            backgroundColor: 'rgba(245,158,11,0.08)',
+            borderColor: 'rgba(245,158,11,0.25)',
+          }}
+        >
+          <span className="mt-0.5 text-base">⚠️</span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold" style={{ color: '#F59E0B' }}>Resource Warning</p>
+            {resourceWarning.warnings.map((w, i) => (
+              <p key={i} className="text-xs text-text-muted mt-0.5">
+                {w.type === 'disk' ? '💾 Disk' : '🧠 Memory'}: <strong className="text-text-primary">{w.usedPercent.toFixed(1)}%</strong> used (threshold: {w.threshold}%) — {w.detail}
+              </p>
+            ))}
+          </div>
+          <button
+            onClick={() => setResourceWarning(null)}
+            className="shrink-0 text-text-muted hover:text-text-primary transition-colors text-xs"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {activeTab === 'overview' && (
         <OverviewTab
           service={service}

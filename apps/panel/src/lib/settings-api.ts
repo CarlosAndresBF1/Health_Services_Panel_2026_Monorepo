@@ -5,6 +5,8 @@ export interface SettingsResponse {
   alert_email_from: string;
   alerts_enabled: boolean;
   alert_min_interval_ms: number;
+  resource_disk_threshold_percent: number;
+  resource_memory_threshold_percent: number;
 }
 
 export interface UpdateSettingsDto {
@@ -12,6 +14,8 @@ export interface UpdateSettingsDto {
   alert_email_from?: string;
   alerts_enabled?: boolean;
   alert_min_interval_ms?: number;
+  resource_disk_threshold_percent?: number;
+  resource_memory_threshold_percent?: number;
 }
 
 export interface ChangePasswordDto {
@@ -30,6 +34,9 @@ export const settingsApi = {
   },
 
   changePassword(data: ChangePasswordDto): Promise<{ message: string }> {
-    return apiClient.put<{ message: string }>("/api/auth/change-password", data);
+    return apiClient.put<{ message: string }>(
+      "/api/auth/change-password",
+      data,
+    );
   },
 };

@@ -25,6 +25,8 @@ export default function SettingsPage() {
   const [emailFrom, setEmailFrom] = useState('');
   const [alertsEnabled, setAlertsEnabled] = useState(true);
   const [minInterval, setMinInterval] = useState(300_000);
+  const [diskThreshold, setDiskThreshold] = useState(90);
+  const [memoryThreshold, setMemoryThreshold] = useState(90);
 
   // Change password form state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -40,6 +42,8 @@ export default function SettingsPage() {
       setEmailFrom(data.alert_email_from);
       setAlertsEnabled(data.alerts_enabled);
       setMinInterval(data.alert_min_interval_ms);
+      setDiskThreshold(data.resource_disk_threshold_percent);
+      setMemoryThreshold(data.resource_memory_threshold_percent);
     } catch {
       setToast({ type: 'error', message: 'Failed to load settings' });
     } finally {
@@ -68,6 +72,8 @@ export default function SettingsPage() {
       if (emailFrom !== settings?.alert_email_from) payload.alert_email_from = emailFrom;
       if (alertsEnabled !== settings?.alerts_enabled) payload.alerts_enabled = alertsEnabled;
       if (minInterval !== settings?.alert_min_interval_ms) payload.alert_min_interval_ms = minInterval;
+      if (diskThreshold !== settings?.resource_disk_threshold_percent) payload.resource_disk_threshold_percent = diskThreshold;
+      if (memoryThreshold !== settings?.resource_memory_threshold_percent) payload.resource_memory_threshold_percent = memoryThreshold;
 
       if (Object.keys(payload).length === 0) {
         setToast({ type: 'success', message: 'No changes to save' });
@@ -119,7 +125,9 @@ export default function SettingsPage() {
     (emailTo !== settings.alert_email_to ||
       emailFrom !== settings.alert_email_from ||
       alertsEnabled !== settings.alerts_enabled ||
-      minInterval !== settings.alert_min_interval_ms);
+      minInterval !== settings.alert_min_interval_ms ||
+      diskThreshold !== settings.resource_disk_threshold_percent ||
+      memoryThreshold !== settings.resource_memory_threshold_percent);
 
   if (loading) {
     return (
@@ -245,6 +253,57 @@ export default function SettingsPage() {
               ))}
             </select>
           </div>
+
+          {/* Divider */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} />
+
+          {/* Resource Thresholds */}
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              Resource Alert Thresholds
+            </label>
+            <p className="text-xs text-text-muted mb-3">
+              Send an email alert when disk or memory usage exceeds these percentages
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="diskThreshold" className="block text-xs text-text-muted mb-1">
+                  💾 Disk usage threshold (%)
+                </label>
+                <input
+                  id="diskThreshold"
+                  type="number"
+                  min={50}
+                  max={99}
+                  value={diskThreshold}
+                  onChange={(e) => setDiskThreshold(Math.min(99, Math.max(50, Number(e.target.value))))}
+                  className="w-full rounded-lg border px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-accent"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="memoryThreshold" className="block text-xs text-text-muted mb-1">
+                  🧠 Memory usage threshold (%)
+                </label>
+                <input
+                  id="memoryThreshold"
+                  type="number"
+                  min={50}
+                  max={99}
+                  value={memoryThreshold}
+                  onChange={(e) => setMemoryThreshold(Math.min(99, Math.max(50, Number(e.target.value))))}
+                  className="w-full rounded-lg border px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-accent"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Save button */}
@@ -356,6 +415,7 @@ export default function SettingsPage() {
         <ul className="space-y-1.5 text-xs text-text-muted">
           <li>• When a service goes <strong className="text-status-down">DOWN</strong>, HealthPanel collects a screenshot and logs, then sends an email.</li>
           <li>• When the service <strong className="text-status-up">recovers</strong>, a recovery email is sent automatically.</li>
+          <li>• When disk or memory usage exceeds the configured threshold, a <strong style={{ color: '#F59E0B' }}>resource warning</strong> email is sent (30 min cooldown per service).</li>
           <li>• Rate limiting prevents duplicate alerts within the configured interval.</li>
           <li>• Individual services can have alerts toggled in their settings page.</li>
           <li>• A <code className="rounded bg-white/5 px-1.5 py-0.5 text-accent">SENDGRID_API_KEY</code> environment variable must be set on the API server.</li>

@@ -6,11 +6,19 @@ import {
   INCIDENT_RESOLVED_EVENT,
   type IncidentEvent,
 } from "../health-checker/incident.service";
+import {
+  RESOURCE_WARNING_EVENT,
+  type ResourceWarningEvent,
+} from "../health-checker/health-checker.service";
 import { AlertOrchestratorService } from "./alert-orchestrator.service";
+import { AlertsService } from "./alerts.service";
 
 @Injectable()
 export class AlertEventListener {
-  constructor(private readonly orchestrator: AlertOrchestratorService) {}
+  constructor(
+    private readonly orchestrator: AlertOrchestratorService,
+    private readonly alertsService: AlertsService,
+  ) {}
 
   @OnEvent(INCIDENT_CREATED_EVENT, { async: true })
   async handleIncidentCreated(event: IncidentEvent): Promise<void> {
@@ -20,5 +28,13 @@ export class AlertEventListener {
   @OnEvent(INCIDENT_RESOLVED_EVENT, { async: true })
   async handleIncidentResolved(event: IncidentEvent): Promise<void> {
     await this.orchestrator.onIncidentResolved(event.incident, event.service);
+  }
+
+  @OnEvent(RESOURCE_WARNING_EVENT, { async: true })
+  async handleResourceWarning(event: ResourceWarningEvent): Promise<void> {
+    await this.alertsService.sendResourceAlert({
+      service: event.service,
+      warnings: event.warnings,
+    });
   }
 }

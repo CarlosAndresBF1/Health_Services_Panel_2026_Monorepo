@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboard-shell';
 import { type ServiceRecord, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, servicesApi, type PaginatedServices } from '@/lib/services-api';
 import { healthApi, type HealthCheckRecord, type PaginatedHealthChecks } from '@/lib/health-api';
-import { useMonitorSocket, type WsHealthUpdate } from '@/lib/use-monitor-socket';
+import { useMonitorSocket, type WsHealthUpdate, type WsResourceWarning } from '@/lib/use-monitor-socket';
 
 type ServiceStatus = 'up' | 'down' | 'degraded' | 'unknown';
 
@@ -130,6 +130,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   // Map serviceId → latest HealthCheckRecord
   const [statusMap, setStatusMap] = useState<Record<number, HealthCheckRecord>>({});
+  // Resource warnings received via WebSocket
+  const [resourceWarnings, setResourceWarnings] = useState<WsResourceWarning[]>([]);
 
   // Load services
   useEffect(() => {
@@ -184,6 +186,13 @@ export default function DashboardPage() {
         .then((res: PaginatedServices) => setServices(res.data))
         .catch(() => { /* ignore */ });
     }, []),
+    onResourceWarning: useCallback((data: WsResourceWarning) => {
+      setResourceWarnings((prev) => {
+        // Replace existing warning for same service, keep latest only
+        const filtered = prev.filter((w) => w.serviceId !== data.serviceId);
+        return [data, ...filtered].slice(0, 10); // max 10 warnings
+      });
+    }, []),
   });
 
   const activeCount = services.filter((s) => s.isActive).length;
@@ -205,6 +214,46 @@ export default function DashboardPage() {
         </Link>
       }
     >
+      {/* Resource warnings banner */}
+      {resourceWarnings.length > 0 && (
+        <div className="mb-6 space-y-2">
+          {resourceWarnings.map((rw) => (
+            <Link key={rw.serviceId} href={`/services/${rw.serviceId}`}>
+              <div
+                className="flex items-start gap-3 rounded-lg border px-4 py-3 text-sm cursor-pointer hover:border-amber-400/40 transition-colors"
+                style={{
+                  backgroundColor: 'rgba(245,158,11,0.08)',
+                  borderColor: 'rgba(245,158,11,0.25)',
+                }}
+              >
+                <span className="mt-0.5 text-base">⚠️</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold" style={{ color: '#F59E0B' }}>
+                    Resource Warning — {rw.serviceName}
+                  </p>
+                  {rw.warnings.map((w, i) => (
+                    <p key={i} className="text-xs text-text-muted mt-0.5">
+                      {w.type === 'disk' ? '💾 Disk' : '🧠 Memory'}: <strong className="text-text-primary">{w.usedPercent.toFixed(1)}%</strong> used (threshold: {w.threshold}%) — {w.detail}
+                    </p>
+                  ))}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setResourceWarnings((prev) => prev.filter((w) => w.serviceId !== rw.serviceId));
+                  }}
+                  className="shrink-0 text-text-muted hover:text-text-primary transition-colors text-xs"
+                  aria-label="Dismiss warning"
+                >
+                  ✕
+                </button>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+
       {/* Stats */}
       {services.length > 0 && (
         <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">

@@ -1,9 +1,10 @@
 // WebSocket event names
 export enum WsEvent {
-  HEALTH_UPDATE = 'health:update',
-  INCIDENT_NEW = 'incident:new',
-  INCIDENT_RESOLVED = 'incident:resolved',
-  SERVICE_UPDATE = 'service:update',
+  HEALTH_UPDATE = "health:update",
+  INCIDENT_NEW = "incident:new",
+  INCIDENT_RESOLVED = "incident:resolved",
+  SERVICE_UPDATE = "service:update",
+  RESOURCE_WARNING = "resource:warning",
 }
 
 // WebSocket payloads
@@ -13,6 +14,19 @@ export interface WsHealthUpdate {
   responseTimeMs: number;
   statusCode: number;
   checkedAt: string;
+  responseData?: Record<string, unknown> | null;
+}
+
+export interface WsResourceWarning {
+  serviceId: number;
+  serviceName: string;
+  warnings: Array<{
+    type: "disk" | "memory";
+    usedPercent: number;
+    threshold: number;
+    detail: string;
+  }>;
+  timestamp: string;
 }
 
 export interface WsIncidentNew {

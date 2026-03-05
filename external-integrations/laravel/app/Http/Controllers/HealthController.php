@@ -30,6 +30,9 @@ class HealthController extends Controller
         $memory = memory_get_usage(true);
         $peakMemory = memory_get_peak_usage(true);
 
+        $diskTotal = disk_total_space('/');
+        $diskFree = disk_free_space('/');
+
         return response()->json([
             'status' => $dbStatus === 'connected' ? 'ok' : 'error',
             'uptime' => time() - (int) (defined('LARAVEL_START') ? LARAVEL_START : $_SERVER['REQUEST_TIME']),
@@ -38,6 +41,12 @@ class HealthController extends Controller
             'memory' => [
                 'current_mb' => round($memory / 1024 / 1024, 2),
                 'peak_mb' => round($peakMemory / 1024 / 1024, 2),
+            ],
+            'disk' => [
+                'total_gb' => round($diskTotal / 1024 / 1024 / 1024, 2),
+                'free_gb' => round($diskFree / 1024 / 1024 / 1024, 2),
+                'used_gb' => round(($diskTotal - $diskFree) / 1024 / 1024 / 1024, 2),
+                'used_percent' => round(($diskTotal - $diskFree) / $diskTotal * 100, 1),
             ],
             'php_version' => PHP_VERSION,
             'laravel_version' => app()->version(),

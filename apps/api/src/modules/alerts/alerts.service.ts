@@ -16,6 +16,16 @@ export interface AlertPayload {
   logsSnapshot?: string | undefined;
 }
 
+export interface ResourceAlertPayload {
+  service: Service;
+  warnings: Array<{
+    type: "disk" | "memory";
+    usedPercent: number;
+    threshold: number;
+    detail: string;
+  }>;
+}
+
 @Injectable()
 export class AlertsService {
   private readonly logger = new Logger(AlertsService.name);
@@ -218,6 +228,112 @@ export class AlertsService {
   }
 
   // ── HTML templates ────────────────────────────────────────────────────────
+
+  async sendResourceAlert(payload: ResourceAlertPayload): Promise<boolean> {
+    const { service, warnings } = payload;
+
+    if (!this.configured) {
+      this.logger.warn("SendGrid not configured, skipping resource alert");
+      return false;
+    }
+
+    if (!service.alertsEnabled) {
+      this.logger.debug(`Alerts disabled for service "${service.name}"`);
+      return false;
+    }
+
+    const globalEnabled = await this.isGloballyEnabled();
+    if (!globalEnabled) return false;
+
+    const emailTo = await this.getEmailTo();
+    const emailFrom = await this.getEmailFrom();
+    const dashboardUrl = process.env["PANEL_URL"] ?? "http://localhost:3000";
+
+    const warningTypes = warnings.map((w) => w.type.toUpperCase()).join(" & ");
+    const subject = `⚠️ Resource Warning (${warningTypes}): ${service.name}`;
+
+    const html = this.buildResourceAlertHtml({
+      serviceName: service.name,
+      serviceUrl: service.url,
+      warnings,
+      dashboardUrl: `${dashboardUrl}/services/${service.id}`,
+    });
+
+    try {
+      await sgMail.send({ to: emailTo, from: emailFrom, subject, html });
+      this.logger.log(
+        `Resource alert sent for "${service.name}" (${warningTypes}) to ${emailTo}`,
+      );
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Failed to send resource alert for "${service.name}":`,
+        error,
+      );
+      return false;
+    }
+  }
+
+  buildResourceAlertHtml(params: {
+    serviceName: string;
+    serviceUrl: string;
+    warnings: ResourceAlertPayload["warnings"];
+    dashboardUrl: string;
+  }): string {
+    const warningRows = params.warnings
+      .map((w) => {
+        const icon = w.type === "disk" ? "💾" : "🧠";
+        const label = w.type === "disk" ? "Disk" : "Memory";
+        const barColor = w.usedPercent > 95 ? "#EF4444" : "#F59E0B";
+        return `
+        <tr style="border-top:1px solid rgba(255,255,255,0.06);">
+          <td style="color:#9CA3AF;font-size:12px;text-transform:uppercase;padding:12px 0;font-family:monospace;">${icon} ${label}</td>
+          <td style="text-align:right;padding:12px 0;">
+            <div style="color:${barColor};font-size:18px;font-weight:700;">${w.usedPercent.toFixed(1)}%</div>
+            <div style="color:#9CA3AF;font-size:11px;margin-top:2px;">Threshold: ${w.threshold}%</div>
+            <div style="color:#D1D5DB;font-size:12px;margin-top:4px;">${this.escapeHtml(w.detail)}</div>
+          </td>
+        </tr>`;
+      })
+      .join("");
+
+    return `
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#0A0F1A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;padding:32px 24px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <h1 style="color:#F59E0B;font-size:24px;margin:0;">⚠️ Resource Warning</h1>
+      <p style="color:#9CA3AF;font-size:14px;margin:8px 0 0;">HealthPanel Alert</p>
+    </div>
+
+    <div style="background:#111827;border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:24px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="color:#9CA3AF;font-size:12px;text-transform:uppercase;padding:8px 0;font-family:monospace;">Service</td>
+          <td style="color:#F3F4F6;font-size:14px;text-align:right;padding:8px 0;font-weight:600;">${this.escapeHtml(params.serviceName)}</td>
+        </tr>
+        <tr style="border-top:1px solid rgba(255,255,255,0.06);">
+          <td style="color:#9CA3AF;font-size:12px;text-transform:uppercase;padding:8px 0;font-family:monospace;">URL</td>
+          <td style="color:#60A5FA;font-size:14px;text-align:right;padding:8px 0;"><a href="${this.escapeHtml(params.serviceUrl)}" style="color:#60A5FA;text-decoration:none;">${this.escapeHtml(params.serviceUrl)}</a></td>
+        </tr>
+        ${warningRows}
+      </table>
+    </div>
+
+    <div style="text-align:center;margin-top:24px;">
+      <a href="${this.escapeHtml(params.dashboardUrl)}" style="display:inline-block;background:#C8A951;color:#0A0F1A;text-decoration:none;padding:12px 32px;border-radius:8px;font-weight:600;font-size:14px;">
+        View in Dashboard
+      </a>
+    </div>
+
+    <p style="color:#6B7280;font-size:12px;text-align:center;margin-top:32px;">
+      This is an automated resource warning from HealthPanel. Consider freeing up space or scaling resources.
+    </p>
+  </div>
+</body>
+</html>`;
+  }
 
   buildDownAlertHtml(params: {
     serviceName: string;

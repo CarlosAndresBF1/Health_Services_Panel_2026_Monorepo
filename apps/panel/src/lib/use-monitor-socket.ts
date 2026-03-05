@@ -9,6 +9,7 @@ export const WsEvent = {
   INCIDENT_NEW: "incident:new",
   INCIDENT_RESOLVED: "incident:resolved",
   SERVICE_UPDATE: "service:update",
+  RESOURCE_WARNING: "resource:warning",
 } as const;
 
 export interface WsHealthUpdate {
@@ -17,6 +18,7 @@ export interface WsHealthUpdate {
   responseTimeMs: number;
   statusCode: number;
   checkedAt: string;
+  responseData?: Record<string, unknown> | null;
 }
 
 export interface WsIncidentNew {
@@ -33,11 +35,24 @@ export interface WsIncidentResolved {
   resolvedAt: string;
 }
 
+export interface WsResourceWarning {
+  serviceId: number;
+  serviceName: string;
+  warnings: Array<{
+    type: "disk" | "memory";
+    usedPercent: number;
+    threshold: number;
+    detail: string;
+  }>;
+  timestamp: string;
+}
+
 type EventHandlers = {
   onHealthUpdate?: (data: WsHealthUpdate) => void;
   onIncidentNew?: (data: WsIncidentNew) => void;
   onIncidentResolved?: (data: WsIncidentResolved) => void;
   onServiceUpdate?: (data: { serviceId: number }) => void;
+  onResourceWarning?: (data: WsResourceWarning) => void;
 };
 
 // If NEXT_PUBLIC_WS_URL is set (dev), connect to that host.
@@ -76,6 +91,10 @@ export function useMonitorSocket(handlers: EventHandlers): void {
 
     socket.on(WsEvent.SERVICE_UPDATE, (data: { serviceId: number }) => {
       handlersRef.current.onServiceUpdate?.(data);
+    });
+
+    socket.on(WsEvent.RESOURCE_WARNING, (data: WsResourceWarning) => {
+      handlersRef.current.onResourceWarning?.(data);
     });
 
     return () => {

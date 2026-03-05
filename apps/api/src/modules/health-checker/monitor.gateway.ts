@@ -13,6 +13,7 @@ import {
   WsHealthUpdate,
   WsIncidentNew,
   WsIncidentResolved,
+  WsResourceWarning,
 } from "@healthpanel/shared";
 
 @WebSocketGateway({
@@ -55,5 +56,9 @@ export class MonitorGateway
 
   emitServiceUpdate(serviceId: number): void {
     this.server.emit(WsEvent.SERVICE_UPDATE, { serviceId });
+  }
+
+  emitResourceWarning(payload: WsResourceWarning): void {
+    this.server.emit(WsEvent.RESOURCE_WARNING, payload);
   }
 }

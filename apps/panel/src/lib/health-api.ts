@@ -9,6 +9,7 @@ export interface HealthCheckRecord {
   responseTimeMs: number | null;
   statusCode: number | null;
   errorMessage: string | null;
+  responseData?: Record<string, unknown> | null;
   checkedAt: string;
 }
 

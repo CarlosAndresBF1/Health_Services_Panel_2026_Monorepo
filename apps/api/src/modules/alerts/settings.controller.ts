@@ -10,6 +10,8 @@ interface SettingsResponse {
   alert_email_from: string;
   alerts_enabled: boolean;
   alert_min_interval_ms: number;
+  resource_disk_threshold_percent: number;
+  resource_memory_threshold_percent: number;
 }
 
 interface UpdateSettingsDto {
@@ -17,6 +19,8 @@ interface UpdateSettingsDto {
   alert_email_from?: string;
   alerts_enabled?: boolean;
   alert_min_interval_ms?: number;
+  resource_disk_threshold_percent?: number;
+  resource_memory_threshold_percent?: number;
 }
 
 const ALLOWED_KEYS = [
@@ -24,6 +28,8 @@ const ALLOWED_KEYS = [
   "alert_email_from",
   "alerts_enabled",
   "alert_min_interval_ms",
+  "resource_disk_threshold_percent",
+  "resource_memory_threshold_percent",
 ] as const;
 
 @Controller("api/settings")
@@ -45,6 +51,14 @@ export class SettingsController {
       alerts_enabled: (map.get("alerts_enabled") ?? "true") === "true",
       alert_min_interval_ms: parseInt(
         map.get("alert_min_interval_ms") ?? "300000",
+        10,
+      ),
+      resource_disk_threshold_percent: parseInt(
+        map.get("resource_disk_threshold_percent") ?? "90",
+        10,
+      ),
+      resource_memory_threshold_percent: parseInt(
+        map.get("resource_memory_threshold_percent") ?? "90",
         10,
       ),
     };
