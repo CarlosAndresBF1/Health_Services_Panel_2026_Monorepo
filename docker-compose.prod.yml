@@ -109,6 +109,8 @@ services:
       # No WS_URL needed — Nginx proxies /socket.io/ on the same origin
       # Internal Docker network URL for Next.js rewrites (/backend/:path* → api)
       API_INTERNAL_URL: http://api:3000
+      # Set to "true" only if serving over HTTPS
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     depends_on:
       api:
         condition: service_healthy

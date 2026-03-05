@@ -6,6 +6,7 @@ const API_URL =
   process.env["API_INTERNAL_URL"] ??
   process.env["NEXT_PUBLIC_API_URL"] ??
   "http://localhost:3045";
+const COOKIE_SECURE = process.env["COOKIE_SECURE"] === "true";
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     response.cookies.set(COOKIE_NAME, data.accessToken, {
       httpOnly: true,
-      secure: process.env["NODE_ENV"] === "production",
+      secure: COOKIE_SECURE,
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24, // 24 hours
