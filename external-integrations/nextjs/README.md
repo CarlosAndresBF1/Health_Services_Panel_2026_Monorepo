@@ -41,7 +41,18 @@ MONITOR_SECRET=your-secret-from-healthpanel
 MONITOR_LOG_FILE=logs/app.log
 ```
 
-### 4. Done!
+### 4. Configure endpoints in HealthPanel dashboard
+
+> **IMPORTANT:** Next.js routes live under `/api/`. When registering this service in HealthPanel, you **must** set the endpoints with the `/api/` prefix:
+
+| Setting | Value |
+|---|---|
+| **HEALTH ENDPOINT** | `/api/health` |
+| **LOGS ENDPOINT** | `/api/logs` |
+
+If you select type **"Next.js Web"** when creating the service, these defaults are applied automatically. If the endpoints were set manually or edited, verify they include `/api/`.
+
+### 5. Done!
 
 Your service now exposes:
 
@@ -259,11 +270,27 @@ Both route files must export `dynamic` to prevent Next.js from treating them as 
 export const dynamic = 'force-dynamic';
 ```
 
-**5. Check the URL configured in HealthPanel**
+**5. Check the endpoints configured in HealthPanel** ⚠️ (very common for Next.js)
 
-Make sure the service URL in HealthPanel includes the full base:
-- ✅ `https://your-domain.com` (HealthPanel appends `/api/health` automatically)
+Next.js API routes live under `/api/`, so the endpoints **must** include the prefix. Open the service settings in HealthPanel and verify:
+
+| Field | ❌ Wrong | ✅ Correct |
+|---|---|---|
+| HEALTH ENDPOINT | `/health` | `/api/health` |
+| LOGS ENDPOINT | `/logs` | `/api/logs` |
+| HEALTH ENDPOINT | `api/health` (no leading `/`) | `/api/health` |
+| LOGS ENDPOINT | `api/logs` (no leading `/`) | `/api/logs` |
+
+**The leading `/` is required.** Without it, the URL becomes `https://your-domain.comapi/health` (no separator between domain and path).
+
+If you selected type **"Next.js Web"** when creating the service, the defaults `/api/health` and `/api/logs` are applied automatically. But if the service was created with a different type or the endpoints were edited manually, they might be wrong.
+
+**6. Check the base URL configured in HealthPanel**
+
+Make sure the service URL in HealthPanel is the base domain only:
+- ✅ `https://your-domain.com` (HealthPanel appends `/api/health` from the endpoint field)
 - ❌ `https://your-domain.com/api` (would result in `/api/api/health`)
+- ❌ `https://your-domain.com/` (trailing slash is fine, but keep it clean)
 
 **6. Verify process.env loads correctly**
 
@@ -511,6 +538,8 @@ import { validateMonitorRequest } from '../../lib/validate-monitor-request';
 - [ ] Files copied: `app/api/health/route.ts`, `app/api/logs/route.ts`, `lib/validate-monitor-request.ts`
 - [ ] Import paths adjusted for your project (`@/lib/...` or relative)
 - [ ] `MONITOR_API_KEY` and `MONITOR_SECRET` set in production environment
+- [ ] **Endpoints in HealthPanel** set to `/api/health` and `/api/logs` (with `/api/` prefix and leading `/`)
+- [ ] Service URL in HealthPanel is the base domain (no `/api` suffix)
 - [ ] Auth middleware excludes `/api/health` and `/api/logs`
 - [ ] Project rebuilt (`rm -rf .next && npm run build`) after adding files
 - [ ] Both routes export `dynamic = 'force-dynamic'`
