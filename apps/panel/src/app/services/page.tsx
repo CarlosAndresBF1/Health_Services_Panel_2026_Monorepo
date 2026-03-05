@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardShell } from '@/components/dashboard-shell';
 import {
   servicesApi,
