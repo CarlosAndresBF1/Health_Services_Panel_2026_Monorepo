@@ -88,8 +88,12 @@ RUN pnpm install --prod --filter=@healthpanel/api
 # Copy compiled output from build stage
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 
+# Copy entrypoint script
+COPY apps/api/entrypoint.sh ./apps/api/entrypoint.sh
+
 # Create screenshots directory with proper ownership (cwd = /app/apps/api at runtime)
-RUN mkdir -p /app/apps/api/screenshots && chown -R nestjs:nestjs /app/apps/api/screenshots
+RUN mkdir -p /app/apps/api/screenshots && chown -R nestjs:nestjs /app/apps/api/screenshots \
+    && chmod +x /app/apps/api/entrypoint.sh
 
 # Switch to non-root user
 USER nestjs
@@ -101,4 +105,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-CMD ["node", "dist/main"]
+CMD ["sh", "entrypoint.sh"]
