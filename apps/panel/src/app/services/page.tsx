@@ -386,8 +386,8 @@ export default function ServicesPage() {
     try {
       const payload: CreateServicePayload = {
         ...form,
-        healthEndpoint: form.healthEndpoint || undefined,
-        logsEndpoint: form.logsEndpoint || undefined,
+        ...(form.healthEndpoint ? { healthEndpoint: form.healthEndpoint } : {}),
+        ...(form.logsEndpoint ? { logsEndpoint: form.logsEndpoint } : {}),
       };
       const result = await servicesApi.create(payload);
       setModal({ type: 'credentials', service: result });
