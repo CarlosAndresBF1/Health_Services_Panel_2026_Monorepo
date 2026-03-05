@@ -88,8 +88,8 @@ RUN pnpm install --prod --filter=@healthpanel/api
 # Copy compiled output from build stage
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 
-# Create screenshots directory with proper ownership
-RUN mkdir -p /app/screenshots && chown -R nestjs:nestjs /app/screenshots
+# Create screenshots directory with proper ownership (cwd = /app/apps/api at runtime)
+RUN mkdir -p /app/apps/api/screenshots && chown -R nestjs:nestjs /app/apps/api/screenshots
 
 # Switch to non-root user
 USER nestjs

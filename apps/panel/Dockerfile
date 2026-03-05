@@ -46,13 +46,13 @@ ENV HOSTNAME="0.0.0.0"
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copy standalone output
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# Copy standalone output (monorepo preserves directory structure)
+COPY --from=builder --chown=nextjs:nodejs /app/apps/panel/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/panel/.next/static ./apps/panel/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/panel/public ./apps/panel/public
 
 USER nextjs
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["node", "apps/panel/server.js"]

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 
 // WebSocket event types (mirrored from @healthpanel/shared)
@@ -40,7 +40,10 @@ type EventHandlers = {
   onServiceUpdate?: (data: { serviceId: number }) => void;
 };
 
-const WS_URL = `${process.env["NEXT_PUBLIC_WS_URL"] ?? "ws://localhost:3045"}/monitor`;
+// If NEXT_PUBLIC_WS_URL is set (dev), connect to that host.
+// Otherwise (production behind Nginx), connect to same origin.
+const WS_BASE = process.env["NEXT_PUBLIC_WS_URL"] ?? "";
+const WS_NAMESPACE = `${WS_BASE}/monitor`;
 
 /**
  * Hook to connect to the monitor WebSocket namespace.
@@ -52,7 +55,7 @@ export function useMonitorSocket(handlers: EventHandlers): void {
   handlersRef.current = handlers;
 
   useEffect(() => {
-    const socket = io(WS_URL, {
+    const socket = io(WS_NAMESPACE, {
       transports: ["websocket", "polling"],
       autoConnect: true,
     });

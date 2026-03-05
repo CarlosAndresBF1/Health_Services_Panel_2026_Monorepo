@@ -105,10 +105,10 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ```bash
 # Run migrations
-docker exec -it healthpanel_api pnpm --filter=@healthpanel/api migration:run
+pnpm migration:run
 
-# Seed initial data (admin user + demo services)
-docker exec -it healthpanel_api pnpm --filter=@healthpanel/api seed
+# Seed initial data (admin user)
+pnpm seed:run
 ```
 
 ### 4. Access the dashboard
@@ -135,10 +135,10 @@ pnpm install
 docker compose up postgres -d
 
 # Run migrations
-pnpm --filter=@healthpanel/api migration:run
+pnpm migration:run
 
 # Seed data
-pnpm --filter=@healthpanel/api seed
+pnpm seed:run
 
 # Start all apps in development mode
 pnpm dev
@@ -168,11 +168,23 @@ pnpm lint               # Lint all workspaces
 pnpm lint:fix           # Auto-fix lint issues
 pnpm typecheck          # Type-check all workspaces
 
-# Docker
+# Docker (development)
 pnpm docker:up          # docker compose up -d
 pnpm docker:down        # docker compose down
 pnpm docker:logs        # docker compose logs -f
 pnpm docker:build       # docker compose build
+
+# Docker (production)
+pnpm docker:prod:up     # docker compose -f docker-compose.prod.yml up -d
+pnpm docker:prod:down   # docker compose -f docker-compose.prod.yml down
+pnpm docker:prod:logs   # docker compose -f docker-compose.prod.yml logs -f
+pnpm docker:prod:build  # docker compose -f docker-compose.prod.yml build
+
+# Database
+pnpm migration:run      # Run pending migrations
+pnpm migration:generate # Generate migration from entity changes
+pnpm migration:revert   # Revert last migration
+pnpm seed:run           # Run seeders (initial admin user)
 
 # Clean
 pnpm clean              # Remove all node_modules and dist
@@ -182,16 +194,20 @@ pnpm clean              # Remove all node_modules and dist
 
 ```bash
 # Generate a new migration from entity changes
-pnpm --filter=@healthpanel/api migration:generate src/database/migrations/MigrationName
-
-# Create an empty migration
-pnpm --filter=@healthpanel/api migration:create src/database/migrations/MigrationName
+pnpm migration:generate src/database/migrations/MigrationName
 
 # Run pending migrations
-pnpm --filter=@healthpanel/api migration:run
+pnpm migration:run
 
 # Revert last migration
-pnpm --filter=@healthpanel/api migration:revert
+pnpm migration:revert
+```
+
+Inside Docker containers:
+
+```bash
+docker exec -it healthpanel_api pnpm migration:run
+docker exec -it healthpanel_api pnpm seed:run
 ```
 
 ### Database backup
@@ -452,7 +468,9 @@ docker compose config
 docker compose ps postgres
 
 # Run migrations manually
-docker exec -it healthpanel_api pnpm --filter=@healthpanel/api migration:run
+pnpm migration:run
+# Or inside the container:
+docker exec -it healthpanel_api pnpm migration:run
 ```
 
 ### Screenshots not working
