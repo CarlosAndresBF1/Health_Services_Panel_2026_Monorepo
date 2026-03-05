@@ -3,7 +3,8 @@
     "allow": [
       "Read(//tmp/**)",
       "Bash(curl -s -b /tmp/cookies.txt http://localhost:3044/ -L -o /dev/null -w \"%{http_code} %{url_effective}\")",
-      "Bash(docker exec healthpanel_postgres psql -U healthpanel_user -d healthpanel -c \"SELECT id, name, is_active, deleted_at FROM services;\")"
+      "Bash(docker exec healthpanel_postgres psql -U healthpanel_user -d healthpanel -c \"SELECT id, name, is_active, deleted_at FROM services;\")",
+      "Bash(git check-ignore -v apps/api/src/modules/logs/logs.module.ts)"
     ],
     "additionalDirectories": [
       "/Users/carlosandresbf/.claude/projects/-Users-carlosandresbf-Documents-Inmov-2026-HealtPanel"
