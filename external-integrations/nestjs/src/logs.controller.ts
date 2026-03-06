@@ -2,7 +2,6 @@ import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { glob } from "glob";
 import { MonitorGuard } from "./monitor.guard";
 
 interface LogsResponse {
@@ -106,7 +105,23 @@ export class LogsController {
       : path.resolve(process.cwd(), pattern);
 
     try {
-      const files = glob.sync(resolvedPattern);
+      const dir = path.dirname(resolvedPattern);
+      const filePattern = path.basename(resolvedPattern);
+
+      if (!fs.existsSync(dir)) {
+        return resolvedPattern;
+      }
+
+      // Convert glob pattern to regex
+      const regexPattern = filePattern
+        .replace(/\./g, "\\.")
+        .replace(/\*/g, ".*");
+      const regex = new RegExp(`^${regexPattern}$`);
+
+      const files = fs
+        .readdirSync(dir)
+        .filter((file) => regex.test(file))
+        .map((file) => path.join(dir, file));
 
       if (files.length === 0) {
         return resolvedPattern; // Return pattern for error message
