@@ -2,8 +2,8 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  JoinColumn,
-  ManyToOne,
+  JoinTable,
+  ManyToMany,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -54,9 +54,6 @@ export class Service {
   })
   deletedAt!: Date | null; // soft delete
 
-  @Column({ name: "category_id", nullable: true })
-  categoryId!: number | null;
-
   @CreateDateColumn({ name: "created_at" })
   createdAt!: Date;
 
@@ -64,12 +61,13 @@ export class Service {
   updatedAt!: Date;
 
   // Relations
-  @ManyToOne(() => Category, (c) => c.services, {
-    nullable: true,
-    onDelete: "SET NULL",
+  @ManyToMany(() => Category, (c) => c.services, { eager: false })
+  @JoinTable({
+    name: "service_categories",
+    joinColumn: { name: "service_id", referencedColumnName: "id" },
+    inverseJoinColumn: { name: "category_id", referencedColumnName: "id" },
   })
-  @JoinColumn({ name: "category_id" })
-  category!: Category | null;
+  categories!: Category[];
 
   @OneToMany(() => HealthCheck, (hc) => hc.service)
   healthChecks!: HealthCheck[];

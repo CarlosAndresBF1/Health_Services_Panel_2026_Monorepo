@@ -1,5 +1,11 @@
 import { apiClient } from "./api";
 
+export interface CategoryInfo {
+  id: number;
+  name: string;
+  color: string | null;
+}
+
 export interface ServiceRecord {
   id: number;
   name: string;
@@ -11,9 +17,7 @@ export interface ServiceRecord {
   checkIntervalSeconds: number;
   isActive: boolean;
   alertsEnabled: boolean;
-  categoryId: number | null;
-  categoryName: string | null;
-  categoryColor: string | null;
+  categories: CategoryInfo[];
   createdAt: string;
   updatedAt: string;
 }
@@ -36,7 +40,7 @@ export interface CreateServicePayload {
   checkIntervalSeconds?: number;
   isActive?: boolean;
   alertsEnabled?: boolean;
-  categoryId?: number | null;
+  categoryIds?: number[];
 }
 
 export const servicesApi = {

@@ -219,7 +219,7 @@ export default function ServicesPage() {
         ...form,
         ...(form.healthEndpoint ? { healthEndpoint: form.healthEndpoint } : {}),
         ...(form.logsEndpoint ? { logsEndpoint: form.logsEndpoint } : {}),
-        categoryId: form.categoryId,
+        categoryIds: form.categoryIds,
       };
       const result = await servicesApi.create(payload);
       setModal({ type: 'credentials', service: result });
@@ -412,18 +412,19 @@ export default function ServicesPage() {
                 <div className="flex items-center justify-between text-xs text-text-muted mb-3">
                   <span className="font-mono">Every {s.checkIntervalSeconds}s</span>
                   <div className="flex items-center gap-2">
-                    {s.categoryName && (
+                    {s.categories?.length > 0 && s.categories.map((cat) => (
                       <span
+                        key={cat.id}
                         className="flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-xs"
                         style={{
-                          backgroundColor: `${s.categoryColor ?? '#6B7280'}15`,
-                          color: s.categoryColor ?? '#6B7280',
+                          backgroundColor: `${cat.color ?? '#6B7280'}15`,
+                          color: cat.color ?? '#6B7280',
                         }}
                       >
-                        {s.categoryColor && <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.categoryColor }} />}
-                        {s.categoryName}
+                        {cat.color && <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: cat.color }} />}
+                        {cat.name}
                       </span>
-                    )}
+                    ))}
                     <span>{s.alertsEnabled ? '🔔 Alerts on' : '🔕 Alerts off'}</span>
                   </div>
                 </div>
@@ -488,17 +489,22 @@ export default function ServicesPage() {
                     <td className="max-w-[180px] truncate px-4 py-3 font-mono text-xs text-text-muted">{s.url}</td>
                     <td className="px-4 py-3"><TypeBadge type={s.type} /></td>
                     <td className="px-4 py-3">
-                      {s.categoryName ? (
-                        <span
-                          className="flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-xs w-fit"
-                          style={{
-                            backgroundColor: `${s.categoryColor ?? '#6B7280'}15`,
-                            color: s.categoryColor ?? '#6B7280',
-                          }}
-                        >
-                          {s.categoryColor && <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.categoryColor }} />}
-                          {s.categoryName}
-                        </span>
+                      {s.categories?.length > 0 ? (
+                        <div className="flex flex-wrap items-center gap-1">
+                          {s.categories.map((cat) => (
+                            <span
+                              key={cat.id}
+                              className="flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-xs w-fit"
+                              style={{
+                                backgroundColor: `${cat.color ?? '#6B7280'}15`,
+                                color: cat.color ?? '#6B7280',
+                              }}
+                            >
+                              {cat.color && <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: cat.color }} />}
+                              {cat.name}
+                            </span>
+                          ))}
+                        </div>
                       ) : (
                         <span className="font-mono text-xs text-text-muted">—</span>
                       )}

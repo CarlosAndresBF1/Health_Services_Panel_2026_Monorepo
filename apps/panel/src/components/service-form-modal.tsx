@@ -22,7 +22,7 @@ export interface ServiceFormData {
   checkIntervalSeconds: number;
   isActive: boolean;
   alertsEnabled: boolean;
-  categoryId: number | null;
+  categoryIds: number[];
 }
 
 const defaultForm: ServiceFormData = {
@@ -34,7 +34,7 @@ const defaultForm: ServiceFormData = {
   checkIntervalSeconds: 60,
   isActive: true,
   alertsEnabled: true,
-  categoryId: null,
+  categoryIds: [],
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ export function ServiceFormModal({
           checkIntervalSeconds: initial.checkIntervalSeconds,
           isActive: initial.isActive,
           alertsEnabled: initial.alertsEnabled,
-          categoryId: initial.categoryId ?? null,
+          categoryIds: (initial.categories ?? []).map((c) => c.id),
         }
       : defaultForm,
   );
@@ -87,7 +87,7 @@ export function ServiceFormModal({
     try {
       const created = await categoriesApi.create({ name: newCatName.trim(), color: newCatColor });
       setCategories((prev) => [...prev, created]);
-      setForm((prev) => ({ ...prev, categoryId: created.id }));
+      setForm((prev) => ({ ...prev, categoryIds: [...prev.categoryIds, created.id] }));
       setNewCatName('');
       setShowNewCat(false);
     } catch {
@@ -204,32 +204,43 @@ export function ServiceFormModal({
               />
             </div>
 
-            {/* Category with inline creation */}
+            {/* Categories multi-select with inline creation */}
             <div className="col-span-2">
-              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Category</label>
-              <div className="flex items-center gap-2">
-                <select
-                  className={`${inputClass} flex-1`}
-                  style={inputStyle}
-                  value={form.categoryId ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setForm((prev) => ({ ...prev, categoryId: val ? Number(val) : null }));
-                  }}
-                >
-                  <option value="" style={{ backgroundColor: '#0A0F1A' }}>
-                    No category
-                  </option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id} style={{ backgroundColor: '#0A0F1A' }}>
+              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Categories</label>
+              <div className="flex flex-wrap items-center gap-2">
+                {categories.map((c) => {
+                  const selected = form.categoryIds.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setForm((prev) => ({
+                          ...prev,
+                          categoryIds: selected
+                            ? prev.categoryIds.filter((id) => id !== c.id)
+                            : [...prev.categoryIds, c.id],
+                        }));
+                      }}
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-xs transition-colors"
+                      style={{
+                        backgroundColor: selected ? `${c.color ?? '#C8A951'}25` : 'rgba(255,255,255,0.05)',
+                        color: selected ? (c.color ?? '#C8A951') : '#9CA3AF',
+                        border: `1px solid ${selected ? `${c.color ?? '#C8A951'}66` : 'rgba(255,255,255,0.1)'}`,
+                      }}
+                    >
+                      {c.color && (
+                        <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />
+                      )}
                       {c.name}
-                    </option>
-                  ))}
-                </select>
+                      {selected && <span className="ml-0.5">✓</span>}
+                    </button>
+                  );
+                })}
                 <button
                   type="button"
                   onClick={() => setShowNewCat((v) => !v)}
-                  className="shrink-0 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors"
+                  className="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
                   style={{
                     backgroundColor: 'rgba(200,169,81,0.15)',
                     color: '#C8A951',
@@ -239,6 +250,11 @@ export function ServiceFormModal({
                   {showNewCat ? '✕' : '+ New'}
                 </button>
               </div>
+              {categories.length === 0 && !showNewCat && (
+                <p className="mt-1 text-xs text-text-muted">
+                  No categories yet. Click <span className="text-accent">+ New</span> to create one.
+                </p>
+              )}
               {showNewCat && (
                 <div
                   className="mt-2 flex items-center gap-2 rounded-lg p-2"

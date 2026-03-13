@@ -1034,14 +1034,14 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
   const handleEditSave = useCallback(async (form: ServiceFormData) => {
     setEditBusy(true);
     try {
-      const payload: Record<string, string | number | boolean | null> = {
+      const payload: Record<string, string | number | boolean | number[]> = {
         name: form.name,
         url: form.url,
         type: form.type,
         checkIntervalSeconds: form.checkIntervalSeconds,
         isActive: form.isActive,
         alertsEnabled: form.alertsEnabled,
-        categoryId: form.categoryId,
+        categoryIds: form.categoryIds,
       };
       if (form.healthEndpoint) payload['healthEndpoint'] = form.healthEndpoint;
       if (form.logsEndpoint) payload['logsEndpoint'] = form.logsEndpoint;

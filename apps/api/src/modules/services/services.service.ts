@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { IsNull, Repository } from "typeorm";
+import { In, IsNull, Repository } from "typeorm";
 
 import {
   DEFAULT_CHECK_INTERVAL,
@@ -10,9 +10,16 @@ import {
 } from "@healthpanel/shared";
 
 import { CryptoService } from "../../common/crypto.service";
+import { Category } from "../../database/entities/category.entity";
 import { Service } from "../../database/entities/service.entity";
 import { CreateServiceDto } from "./dto/create-service.dto";
 import { UpdateServiceDto } from "./dto/update-service.dto";
+
+export interface CategoryInfo {
+  id: number;
+  name: string;
+  color: string | null;
+}
 
 export interface ServiceResponse {
   id: number;
@@ -25,9 +32,7 @@ export interface ServiceResponse {
   checkIntervalSeconds: number;
   isActive: boolean;
   alertsEnabled: boolean;
-  categoryId: number | null;
-  categoryName: string | null;
-  categoryColor: string | null;
+  categories: CategoryInfo[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +46,8 @@ export class ServicesService {
   constructor(
     @InjectRepository(Service)
     private readonly serviceRepository: Repository<Service>,
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
     private readonly cryptoService: CryptoService,
   ) {}
 
@@ -63,9 +70,17 @@ export class ServicesService {
       checkIntervalSeconds: dto.checkIntervalSeconds ?? DEFAULT_CHECK_INTERVAL,
       isActive: dto.isActive ?? true,
       alertsEnabled: dto.alertsEnabled ?? true,
-      categoryId: dto.categoryId ?? null,
       deletedAt: null,
     });
+
+    // Resolve categories
+    if (dto.categoryIds?.length) {
+      service.categories = await this.categoryRepository.findBy({
+        id: In(dto.categoryIds),
+      });
+    } else {
+      service.categories = [];
+    }
 
     const saved = await this.serviceRepository.save(service);
 
@@ -80,18 +95,22 @@ export class ServicesService {
     limit = 20,
     categoryId?: number,
   ): Promise<{ data: ServiceResponse[]; total: number }> {
-    const where: Record<string, unknown> = { deletedAt: IsNull() };
+    const qb = this.serviceRepository
+      .createQueryBuilder("service")
+      .leftJoinAndSelect("service.categories", "category")
+      .where("service.deletedAt IS NULL")
+      .orderBy("service.createdAt", "DESC")
+      .skip((page - 1) * limit)
+      .take(limit);
+
     if (categoryId !== undefined) {
-      where.categoryId = categoryId;
+      qb.andWhere(
+        "EXISTS (SELECT 1 FROM service_categories sc WHERE sc.service_id = service.id AND sc.category_id = :catId)",
+        { catId: categoryId },
+      );
     }
 
-    const [items, total] = await this.serviceRepository.findAndCount({
-      where,
-      relations: ["category"],
-      order: { createdAt: "DESC" },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    const [items, total] = await qb.getManyAndCount();
 
     return {
       data: items.map((s) => this.toResponse(s)),
@@ -118,7 +137,17 @@ export class ServicesService {
     if (dto.isActive !== undefined) service.isActive = dto.isActive;
     if (dto.alertsEnabled !== undefined)
       service.alertsEnabled = dto.alertsEnabled;
-    if (dto.categoryId !== undefined) service.categoryId = dto.categoryId;
+
+    // Update categories when provided
+    if (dto.categoryIds !== undefined) {
+      if (dto.categoryIds.length > 0) {
+        service.categories = await this.categoryRepository.findBy({
+          id: In(dto.categoryIds),
+        });
+      } else {
+        service.categories = [];
+      }
+    }
 
     const saved = await this.serviceRepository.save(service);
     return this.toResponse(saved);
@@ -154,7 +183,7 @@ export class ServicesService {
   private async findActiveById(id: number): Promise<Service> {
     const service = await this.serviceRepository.findOne({
       where: { id, deletedAt: IsNull() },
-      relations: ["category"],
+      relations: ["categories"],
     });
 
     if (!service) {
@@ -177,9 +206,11 @@ export class ServicesService {
       checkIntervalSeconds: service.checkIntervalSeconds,
       isActive: service.isActive,
       alertsEnabled: service.alertsEnabled,
-      categoryId: service.categoryId,
-      categoryName: service.category?.name ?? null,
-      categoryColor: service.category?.color ?? null,
+      categories: (service.categories ?? []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        color: c.color,
+      })),
       createdAt: service.createdAt,
       updatedAt: service.updatedAt,
     };

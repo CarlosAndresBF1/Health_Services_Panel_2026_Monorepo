@@ -231,7 +231,7 @@ export default function DashboardPage() {
   const [resourceWarnings, setResourceWarnings] = useState<WsResourceWarning[]>([]);
 
   const services = allServices.filter((s) => {
-    if (filterCategoryId !== undefined && s.categoryId !== filterCategoryId) return false;
+    if (filterCategoryId !== undefined && !s.categories?.some((c) => c.id === filterCategoryId)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return s.name.toLowerCase().includes(q) || s.url.toLowerCase().includes(q);

@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsEnum,
   IsInt,
@@ -49,6 +50,7 @@ export class CreateServiceDto {
   alertsEnabled?: boolean;
 
   @IsOptional()
-  @IsInt()
-  categoryId?: number;
+  @IsArray()
+  @IsInt({ each: true })
+  categoryIds?: number[];
 }
