@@ -12,6 +12,7 @@ interface SettingsResponse {
   alert_min_interval_ms: number;
   resource_disk_threshold_percent: number;
   resource_memory_threshold_percent: number;
+  domain_alert_days_before: number;
 }
 
 interface UpdateSettingsDto {
@@ -21,6 +22,7 @@ interface UpdateSettingsDto {
   alert_min_interval_ms?: number;
   resource_disk_threshold_percent?: number;
   resource_memory_threshold_percent?: number;
+  domain_alert_days_before?: number;
 }
 
 const ALLOWED_KEYS = [
@@ -30,6 +32,7 @@ const ALLOWED_KEYS = [
   "alert_min_interval_ms",
   "resource_disk_threshold_percent",
   "resource_memory_threshold_percent",
+  "domain_alert_days_before",
 ] as const;
 
 @Controller("api/settings")
@@ -59,6 +62,10 @@ export class SettingsController {
       ),
       resource_memory_threshold_percent: parseInt(
         map.get("resource_memory_threshold_percent") ?? "90",
+        10,
+      ),
+      domain_alert_days_before: parseInt(
+        map.get("domain_alert_days_before") ?? "30",
         10,
       ),
     };

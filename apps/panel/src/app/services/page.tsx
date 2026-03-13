@@ -486,68 +486,123 @@ export default function ServicesPage() {
           </button>
         </div>
       ) : (
-        <div
-          className="overflow-hidden rounded-xl border"
-          style={{ borderColor: 'rgba(255,255,255,0.1)' }}
-        >
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#111827' }}>
-                {['Name', 'URL', 'Type', 'Interval', 'Status', 'Alerts', 'Actions'].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-3 text-left font-mono text-xs text-text-muted uppercase tracking-wider"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {services.map((s, idx) => (
-                <tr
-                  key={s.id}
-                  style={{
-                    backgroundColor: idx % 2 === 0 ? '#0A0F1A' : '#111827',
-                    borderBottom: '1px solid rgba(255,255,255,0.05)',
-                  }}
+        <>
+          {/* ── Mobile card list (< md) ───────────────────────── */}
+          <div className="space-y-3 md:hidden">
+            {services.map((s) => (
+              <div
+                key={s.id}
+                className="rounded-xl border p-4"
+                style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
+              >
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-text-primary truncate">{s.name}</p>
+                    <p className="font-mono text-xs text-text-muted truncate mt-0.5">{s.url}</p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <TypeBadge type={s.type} />
+                    <ActiveBadge active={s.isActive} />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-xs text-text-muted mb-3">
+                  <span className="font-mono">Every {s.checkIntervalSeconds}s</span>
+                  <span>{s.alertsEnabled ? '🔔 Alerts on' : '🔕 Alerts off'}</span>
+                </div>
+                <div
+                  className="flex items-center gap-3 border-t pt-3"
+                  style={{ borderColor: 'rgba(255,255,255,0.06)' }}
                 >
-                  <td className="px-4 py-3 font-medium text-text-primary">{s.name}</td>
-                  <td className="max-w-[180px] truncate px-4 py-3 font-mono text-xs text-text-muted">{s.url}</td>
-                  <td className="px-4 py-3"><TypeBadge type={s.type} /></td>
-                  <td className="px-4 py-3 font-mono text-xs text-text-muted">{s.checkIntervalSeconds}s</td>
-                  <td className="px-4 py-3"><ActiveBadge active={s.isActive} /></td>
-                  <td className="px-4 py-3 font-mono text-xs text-text-muted">{s.alertsEnabled ? '🔔 On' : '🔕 Off'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setModal({ type: 'edit', service: s })}
-                        className="font-mono text-xs text-text-muted hover:text-accent transition-colors"
-                      >
-                        Edit
-                      </button>
-                      <span className="text-text-muted/30">|</span>
-                      <button
-                        onClick={() => handleRegenerate(s)}
-                        disabled={busy}
-                        className="font-mono text-xs text-text-muted hover:text-accent-tech transition-colors disabled:opacity-40"
-                      >
-                        Regen keys
-                      </button>
-                      <span className="text-text-muted/30">|</span>
-                      <button
-                        onClick={() => setModal({ type: 'delete', service: s })}
-                        className="font-mono text-xs text-text-muted hover:text-status-down transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
+                  <button
+                    onClick={() => setModal({ type: 'edit', service: s })}
+                    className="font-mono text-xs text-text-muted hover:text-accent transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <span className="text-text-muted/30">|</span>
+                  <button
+                    onClick={() => handleRegenerate(s)}
+                    disabled={busy}
+                    className="font-mono text-xs text-text-muted hover:text-accent-tech transition-colors disabled:opacity-40"
+                  >
+                    Regen keys
+                  </button>
+                  <span className="text-text-muted/30">|</span>
+                  <button
+                    onClick={() => setModal({ type: 'delete', service: s })}
+                    className="font-mono text-xs text-text-muted hover:text-status-down transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Desktop table (≥ md) ──────────────────────────── */}
+          <div
+            className="hidden md:block overflow-x-auto overflow-hidden rounded-xl border"
+            style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+          >
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#111827' }}>
+                  {['Name', 'URL', 'Type', 'Interval', 'Status', 'Alerts', 'Actions'].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left font-mono text-xs text-text-muted uppercase tracking-wider"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {services.map((s, idx) => (
+                  <tr
+                    key={s.id}
+                    style={{
+                      backgroundColor: idx % 2 === 0 ? '#0A0F1A' : '#111827',
+                      borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    }}
+                  >
+                    <td className="px-4 py-3 font-medium text-text-primary">{s.name}</td>
+                    <td className="max-w-[180px] truncate px-4 py-3 font-mono text-xs text-text-muted">{s.url}</td>
+                    <td className="px-4 py-3"><TypeBadge type={s.type} /></td>
+                    <td className="px-4 py-3 font-mono text-xs text-text-muted">{s.checkIntervalSeconds}s</td>
+                    <td className="px-4 py-3"><ActiveBadge active={s.isActive} /></td>
+                    <td className="px-4 py-3 font-mono text-xs text-text-muted">{s.alertsEnabled ? '🔔 On' : '🔕 Off'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setModal({ type: 'edit', service: s })}
+                          className="font-mono text-xs text-text-muted hover:text-accent transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <span className="text-text-muted/30">|</span>
+                        <button
+                          onClick={() => handleRegenerate(s)}
+                          disabled={busy}
+                          className="font-mono text-xs text-text-muted hover:text-accent-tech transition-colors disabled:opacity-40"
+                        >
+                          Regen keys
+                        </button>
+                        <span className="text-text-muted/30">|</span>
+                        <button
+                          onClick={() => setModal({ type: 'delete', service: s })}
+                          className="font-mono text-xs text-text-muted hover:text-status-down transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Modals */}

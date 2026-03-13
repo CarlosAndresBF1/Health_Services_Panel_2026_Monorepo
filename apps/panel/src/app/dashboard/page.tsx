@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboard-shell';
 import { type ServiceRecord, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, servicesApi, type PaginatedServices } from '@/lib/services-api';
 import { healthApi, type HealthCheckRecord, type PaginatedHealthChecks, servicePreviewUrl } from '@/lib/health-api';
-import { useMonitorSocket, type WsHealthUpdate, type WsResourceWarning } from '@/lib/use-monitor-socket';
+import { useMonitorSocket, type WsHealthUpdate, type WsResourceWarning, type WsDomainExpiryWarning } from '@/lib/use-monitor-socket';
+import { domainApi, type DomainCheckRecord } from '@/lib/domain-api';
 
 type ServiceStatus = 'up' | 'down' | 'degraded' | 'unknown';
 
@@ -35,7 +36,7 @@ function StatusDot({ status }: { status: ServiceStatus }) {
   );
 }
 
-function ServiceCard({ service, latestCheck }: { service: ServiceRecord; latestCheck?: HealthCheckRecord | null | undefined }) {
+function ServiceCard({ service, latestCheck, domainCheck }: { service: ServiceRecord; latestCheck?: HealthCheckRecord | null | undefined; domainCheck?: DomainCheckRecord | null | undefined }) {
   const typeLabel = SERVICE_TYPE_LABELS[service.type as keyof typeof SERVICE_TYPE_LABELS] ?? service.type;
   const typeColor = SERVICE_TYPE_COLORS[service.type as keyof typeof SERVICE_TYPE_COLORS] ?? '#9CA3AF';
   const status: ServiceStatus = (latestCheck?.status as ServiceStatus) ?? 'unknown';
@@ -138,6 +139,26 @@ function ServiceCard({ service, latestCheck }: { service: ServiceRecord; latestC
             {service.alertsEnabled ? '🔔' : '🔕'}
           </span>
         </div>
+        {/* Domain expiry badge */}
+        {domainCheck && (domainCheck.status === 'expiring_soon' || domainCheck.status === 'expired') && (
+          <div
+            className="mt-2 flex items-center gap-1.5 rounded px-2 py-1 font-mono text-xs"
+            style={{
+              backgroundColor: domainCheck.status === 'expired' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
+              color: domainCheck.status === 'expired' ? '#EF4444' : '#F59E0B',
+            }}
+          >
+            <span>{domainCheck.status === 'expired' ? '🔴' : '⚠️'}</span>
+            <span className="truncate">
+              {domainCheck.domain} —{' '}
+              {domainCheck.status === 'expired'
+                ? 'Domain expired'
+                : domainCheck.daysUntilExpiry !== null
+                ? `Expires in ${domainCheck.daysUntilExpiry}d`
+                : 'Domain expiring'}
+            </span>
+          </div>
+        )}
       </div>
     </Link>
   );
@@ -200,6 +221,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   // Map serviceId → latest HealthCheckRecord
   const [statusMap, setStatusMap] = useState<Record<number, HealthCheckRecord>>({});
+  // Map serviceId → latest DomainCheckRecord
+  const [domainMap, setDomainMap] = useState<Record<number, DomainCheckRecord>>({});
   // Resource warnings received via WebSocket
   const [resourceWarnings, setResourceWarnings] = useState<WsResourceWarning[]>([]);
 
@@ -229,6 +252,22 @@ export default function DashboardPage() {
         }
       }
       setStatusMap(map);
+    });
+  }, [services]);
+
+  // Load latest domain check for each service (background, non-blocking)
+  useEffect(() => {
+    if (services.length === 0) return;
+    Promise.all(
+      services.map((s) =>
+        domainApi.getLatest(s.id).then((dc) => ({ serviceId: s.id, dc })),
+      ),
+    ).then((results) => {
+      const map: Record<number, DomainCheckRecord> = {};
+      for (const r of results) {
+        if (r.dc) map[r.serviceId] = r.dc;
+      }
+      setDomainMap(map);
     });
   }, [services]);
 
@@ -263,6 +302,24 @@ export default function DashboardPage() {
         const filtered = prev.filter((w) => w.serviceId !== data.serviceId);
         return [data, ...filtered].slice(0, 10); // max 10 warnings
       });
+    }, []),
+    onDomainExpiryWarning: useCallback((data: WsDomainExpiryWarning) => {
+      // Update domain map with the incoming WS data
+      setDomainMap((prev) => ({
+        ...prev,
+        [data.serviceId]: {
+          id: Date.now(),
+          serviceId: data.serviceId,
+          domain: data.domain,
+          expiresAt: data.expiresAt,
+          daysUntilExpiry: data.daysUntilExpiry,
+          status: data.status,
+          registrar: null,
+          error: null,
+          alertSent: false,
+          checkedAt: new Date().toISOString(),
+        },
+      }));
     }, []),
   });
 
@@ -337,11 +394,11 @@ export default function DashboardPage() {
           ].map((stat) => (
             <div
               key={stat.label}
-              className="rounded-xl border px-6 py-4"
+              className="rounded-xl border px-4 py-3 sm:px-6 sm:py-4"
               style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
             >
               <p className="font-mono text-xs text-text-muted uppercase tracking-wider">{stat.label}</p>
-              <p className="mt-1 text-2xl font-bold" style={{ color: stat.color }}>{stat.value}</p>
+              <p className="mt-1 text-xl font-bold sm:text-2xl" style={{ color: stat.color }}>{stat.value}</p>
             </div>
           ))}
         </div>
@@ -363,7 +420,7 @@ export default function DashboardPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
-            <ServiceCard key={s.id} service={s} latestCheck={statusMap[s.id]} />
+            <ServiceCard key={s.id} service={s} latestCheck={statusMap[s.id]} domainCheck={domainMap[s.id]} />
           ))}
         </div>
       )}

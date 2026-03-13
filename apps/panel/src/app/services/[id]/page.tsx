@@ -6,6 +6,7 @@ import { DashboardShell } from '@/components/dashboard-shell';
 import { servicesApi, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, INTERVAL_OPTIONS, type ServiceRecord } from '@/lib/services-api';
 import { healthApi, type HealthCheckRecord, type IncidentRecord, type PaginatedHealthChecks, type PaginatedIncidents, screenshotUrl, servicePreviewUrl, captureServiceScreenshot } from '@/lib/health-api';
 import { useMonitorSocket, type WsHealthUpdate, type WsIncidentNew, type WsIncidentResolved, type WsResourceWarning } from '@/lib/use-monitor-socket';
+import { domainApi, type DomainCheckRecord } from '@/lib/domain-api';
 import { LogViewer } from '@/components/log-viewer';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -68,11 +69,11 @@ function formatDuration(start: string, end: string | null): string {
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div
-      className="flex items-start justify-between border-b py-3"
+      className="flex flex-col gap-1 border-b py-3 sm:flex-row sm:items-start sm:justify-between"
       style={{ borderColor: 'rgba(255,255,255,0.06)' }}
     >
       <span className="font-mono text-xs text-text-muted uppercase tracking-wider">{label}</span>
-      <span className="text-right text-sm text-text-primary font-medium">{value}</span>
+      <span className="text-sm text-text-primary font-medium sm:text-right">{value}</span>
     </div>
   );
 }
@@ -123,11 +124,13 @@ function StatusBadge({ status }: { status: string }) {
 function OverviewTab({
   service,
   latestCheck,
+  domainCheck,
   onCheckNow,
   checking,
 }: {
   service: ServiceRecord;
   latestCheck: HealthCheckRecord | null;
+  domainCheck: DomainCheckRecord | null;
   onCheckNow: () => void;
   checking: boolean;
 }) {
@@ -327,6 +330,140 @@ function OverviewTab({
 
       {/* Daily preview screenshot */}
       <ScreenshotPreview serviceId={service.id} />
+
+      {/* Domain expiry */}
+      <DomainCard serviceId={service.id} domainCheck={domainCheck} />
+    </div>
+  );
+}
+
+function DomainCard({
+  serviceId,
+  domainCheck,
+}: {
+  serviceId: number;
+  domainCheck: DomainCheckRecord | null;
+}) {
+  const [check, setCheck] = useState<DomainCheckRecord | null>(domainCheck);
+  const [busy, setBusy] = useState(false);
+
+  // Sync with prop updates
+  useEffect(() => {
+    setCheck(domainCheck);
+  }, [domainCheck]);
+
+  const handleCheckNow = async () => {
+    setBusy(true);
+    try {
+      const result = await domainApi.checkNow(serviceId);
+      setCheck(result);
+    } catch {
+      // ignore
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const accentColor =
+    check?.status === 'expired'
+      ? '#EF4444'
+      : check?.status === 'expiring_soon'
+      ? '#F59E0B'
+      : check?.status === 'ok'
+      ? '#22C55E'
+      : '#6B7280';
+
+  const statusLabel =
+    check?.status === 'expired'
+      ? 'EXPIRED'
+      : check?.status === 'expiring_soon'
+      ? 'EXPIRING SOON'
+      : check?.status === 'ok'
+      ? 'ACTIVE'
+      : 'UNKNOWN';
+
+  return (
+    <div
+      className="rounded-xl border p-6 lg:col-span-2"
+      style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
+    >
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-text-primary">🌐 Domain Expiry</h3>
+        <button
+          onClick={handleCheckNow}
+          disabled={busy}
+          className="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 disabled:opacity-50"
+          style={{ backgroundColor: '#1F2937', color: '#F3F4F6', border: '1px solid rgba(255,255,255,0.1)' }}
+        >
+          {busy ? (
+            <span className="flex items-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Checking…
+            </span>
+          ) : (
+            'Check Now'
+          )}
+        </button>
+      </div>
+
+      {check ? (
+        <div className="space-y-0">
+          <DetailRow
+            label="Domain"
+            value={<span className="font-mono text-sm text-accent">{check.domain}</span>}
+          />
+          <DetailRow
+            label="Status"
+            value={
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-xs font-medium"
+                style={{ color: accentColor, backgroundColor: `${accentColor}1A` }}
+              >
+                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accentColor }} />
+                {statusLabel}
+              </span>
+            }
+          />
+          {check.expiresAt && (
+            <DetailRow
+              label="Expiry date"
+              value={formatDateDual(check.expiresAt)}
+            />
+          )}
+          {check.daysUntilExpiry !== null && (
+            <DetailRow
+              label="Days remaining"
+              value={
+                <span style={{ color: accentColor }} className="font-semibold">
+                  {check.daysUntilExpiry < 0
+                    ? `Expired ${Math.abs(check.daysUntilExpiry)} day(s) ago`
+                    : `${check.daysUntilExpiry} day(s)`}
+                </span>
+              }
+            />
+          )}
+          {check.registrar && (
+            <DetailRow label="Registrar" value={check.registrar} />
+          )}
+          {check.error && (
+            <DetailRow
+              label="Error"
+              value={<span className="text-red-400 text-xs font-mono">{check.error}</span>}
+            />
+          )}
+          <DetailRow
+            label="Last checked"
+            value={<span className="text-text-muted text-xs">{formatDateDual(check.checkedAt)}</span>}
+          />
+        </div>
+      ) : (
+        <p className="text-sm text-text-muted">
+          No domain check data yet — click &quot;Check Now&quot; to run the first lookup.
+        </p>
+      )}
     </div>
   );
 }
@@ -337,8 +474,6 @@ function ScreenshotPreview({ serviceId }: { serviceId: number }) {
   const [capturing, setCapturing] = useState(false);
   const [imgKey, setImgKey] = useState(0);
   const previewSrc = servicePreviewUrl(serviceId);
-
-  const checkPreview = useCallback(() => {
     fetch(previewSrc, { method: 'HEAD' })
       .then((res) => setHasPreview(res.ok))
       .catch(() => setHasPreview(false));
@@ -489,10 +624,10 @@ function HealthChecksTab({
   return (
     <div>
       <div
-        className="overflow-hidden rounded-xl border"
+        className="overflow-x-auto rounded-xl border"
         style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
       >
-        <table className="w-full">
+        <table className="w-full min-w-[560px]">
           <thead>
             <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
               <th className="px-4 py-3 text-left font-mono text-xs text-text-muted uppercase tracking-wider">Time</th>
@@ -902,6 +1037,9 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
   const [latestCheck, setLatestCheck] = useState<HealthCheckRecord | null>(null);
   const [checking, setChecking] = useState(false);
   const [resourceWarning, setResourceWarning] = useState<WsResourceWarning | null>(null);
+  // Domain check
+  const [domainCheck, setDomainCheck] = useState<DomainCheckRecord | null>(null);
+  const [domainChecking, setDomainChecking] = useState(false);
 
   // Load service
   useEffect(() => {
@@ -917,6 +1055,11 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
     healthApi.getChecks(serviceId, 1, 1).then((res: PaginatedHealthChecks) => {
       setLatestCheck(res.data.length > 0 ? res.data[0]! : null);
     }).catch(() => { /* ignore */ });
+  }, [serviceId]);
+
+  // Load latest domain check
+  useEffect(() => {
+    domainApi.getLatest(serviceId).then(setDomainCheck).catch(() => { /* ignore */ });
   }, [serviceId]);
 
   // Load health checks when tab is active or page changes
@@ -1087,31 +1230,31 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
         <div className="flex items-center gap-2">
           <button
             onClick={() => setEditModalOpen(true)}
-            className="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150"
+            className="rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150"
             style={{ backgroundColor: '#C8A951', color: '#0A0F1A' }}
           >
-            ✏️ Edit
+            <span className="hidden sm:inline">✏️ </span>Edit
           </button>
           <Link
             href="/services"
-            className="rounded-lg border px-4 py-2 text-sm text-text-muted transition-colors hover:border-accent hover:text-accent"
+            className="rounded-lg border px-3 py-2 text-sm text-text-muted transition-colors hover:border-accent hover:text-accent"
             style={{ borderColor: 'rgba(255,255,255,0.12)' }}
           >
-            ← Services
+            <span className="sm:hidden">←</span><span className="hidden sm:inline">← Services</span>
           </Link>
         </div>
       }
     >
       {/* Tabs */}
       <div
-        className="mb-6 flex gap-1 rounded-xl p-1"
+        className="mb-6 flex gap-1 overflow-x-auto rounded-xl p-1 scrollbar-none"
         style={{ backgroundColor: '#111827' }}
       >
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150"
+            className="shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150"
             style={
               activeTab === tab.id
                 ? { backgroundColor: '#0A0F1A', color: '#C8A951', boxShadow: '0 0 0 1px rgba(200,169,81,0.3)' }
@@ -1157,6 +1300,7 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
         <OverviewTab
           service={service}
           latestCheck={latestCheck}
+          domainCheck={domainCheck}
           onCheckNow={handleCheckNow}
           checking={checking}
         />

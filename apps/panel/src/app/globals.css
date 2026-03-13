@@ -59,6 +59,15 @@ body {
   height: 6px;
 }
 
+/* Hide scrollbar utility */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 ::-webkit-scrollbar-track {
   background: var(--color-primary);
 }

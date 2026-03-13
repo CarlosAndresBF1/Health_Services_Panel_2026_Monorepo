@@ -27,6 +27,7 @@ export default function SettingsPage() {
   const [minInterval, setMinInterval] = useState(300_000);
   const [diskThreshold, setDiskThreshold] = useState(90);
   const [memoryThreshold, setMemoryThreshold] = useState(90);
+  const [domainAlertDays, setDomainAlertDays] = useState(30);
 
   // Change password form state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -44,6 +45,7 @@ export default function SettingsPage() {
       setMinInterval(data.alert_min_interval_ms);
       setDiskThreshold(data.resource_disk_threshold_percent);
       setMemoryThreshold(data.resource_memory_threshold_percent);
+      setDomainAlertDays(data.domain_alert_days_before ?? 30);
     } catch {
       setToast({ type: 'error', message: 'Failed to load settings' });
     } finally {
@@ -74,6 +76,7 @@ export default function SettingsPage() {
       if (minInterval !== settings?.alert_min_interval_ms) payload.alert_min_interval_ms = minInterval;
       if (diskThreshold !== settings?.resource_disk_threshold_percent) payload.resource_disk_threshold_percent = diskThreshold;
       if (memoryThreshold !== settings?.resource_memory_threshold_percent) payload.resource_memory_threshold_percent = memoryThreshold;
+      if (domainAlertDays !== (settings?.domain_alert_days_before ?? 30)) payload.domain_alert_days_before = domainAlertDays;
 
       if (Object.keys(payload).length === 0) {
         setToast({ type: 'success', message: 'No changes to save' });
@@ -127,7 +130,8 @@ export default function SettingsPage() {
       alertsEnabled !== settings.alerts_enabled ||
       minInterval !== settings.alert_min_interval_ms ||
       diskThreshold !== settings.resource_disk_threshold_percent ||
-      memoryThreshold !== settings.resource_memory_threshold_percent);
+      memoryThreshold !== settings.resource_memory_threshold_percent ||
+      domainAlertDays !== (settings.domain_alert_days_before ?? 30));
 
   if (loading) {
     return (
@@ -295,6 +299,24 @@ export default function SettingsPage() {
                   max={99}
                   value={memoryThreshold}
                   onChange={(e) => setMemoryThreshold(Math.min(99, Math.max(50, Number(e.target.value))))}
+                  className="w-full rounded-lg border px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-accent"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="domainAlertDays" className="block text-xs text-text-muted mb-1">
+                  🌐 Domain expiry alert (days before)
+                </label>
+                <input
+                  id="domainAlertDays"
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={domainAlertDays}
+                  onChange={(e) => setDomainAlertDays(Math.min(365, Math.max(1, Number(e.target.value))))}
                   className="w-full rounded-lg border px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-accent"
                   style={{
                     backgroundColor: 'rgba(255,255,255,0.04)',

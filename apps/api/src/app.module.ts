@@ -10,6 +10,7 @@ import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AlertsModule } from "./modules/alerts/alerts.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { DomainModule } from "./modules/domain/domain.module";
 import { HealthCheckerModule } from "./modules/health-checker/health-checker.module";
 import { LogsModule } from "./modules/logs/logs.module";
 import { ServicesModule } from "./modules/services/services.module";
@@ -43,6 +44,7 @@ import { ServicesModule } from "./modules/services/services.module";
     HealthCheckerModule,
     LogsModule,
     AlertsModule,
+    DomainModule,
   ],
   controllers: [AppController],
   providers: [AppService],

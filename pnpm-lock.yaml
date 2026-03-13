@@ -91,6 +91,9 @@ importers:
       typeorm:
         specifier: ^0.3.20
         version: 0.3.28(pg@8.19.0)(ts-node@10.9.2(@types/node@22.19.13)(typescript@5.9.3))
+      whoiser:
+        specifier: 2.0.0-beta.10
+        version: 2.0.0-beta.10
     devDependencies:
       '@nestjs/cli':
         specifier: ^10.3.0
@@ -3112,6 +3115,10 @@ packages:
   pump@3.0.4:
     resolution: {integrity: sha512-VS7sjc6KR7e1ukRFhQSY5LM2uBWAUPiOPa/A3mkKmiMwSmRFUITt0xuj+/lesgnCv+dPIEYlkzrcyXgquIHMcA==}
 
+  punycode-esm@1.0.15:
+    resolution: {integrity: sha512-pR7pzaunGU4g3v3vMIXD9WnrGUiEBs2ezcVYr9piTC/HVem9F+MJ+JNdSeYD9pK7EumLMUMO9F3Gsa3RS+o7pA==}
+    engines: {node: '>=20'}
+
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
@@ -3826,6 +3833,9 @@ packages:
     resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}
     engines: {node: '>= 8'}
     hasBin: true
+
+  whoiser@2.0.0-beta.10:
+    resolution: {integrity: sha512-Y1uyLNR6zQnKj/mZPYtofs6u/9ZAnBzAuiTgU1aEMKjlnknrQdLyOKv9ErmIeF2mySMjGFj0tCam+DpxotBXHw==}
 
   wide-align@1.1.5:
     resolution: {integrity: sha512-eDMORYaPNZ4sQIuuYPDHdQvf4gyCF9rEEV/yPxGfwPkRodwEgiMUUXTx/dex+Me0wxx53S+NgUHaP7y3MGlDmg==}
@@ -7230,6 +7240,8 @@ snapshots:
       end-of-stream: 1.4.5
       once: 1.4.0
 
+  punycode-esm@1.0.15: {}
+
   punycode@2.3.1: {}
 
   puppeteer-core@22.15.0:
@@ -8027,6 +8039,10 @@ snapshots:
   which@2.0.2:
     dependencies:
       isexe: 2.0.0
+
+  whoiser@2.0.0-beta.10:
+    dependencies:
+      punycode-esm: 1.0.15
 
   wide-align@1.1.5:
     dependencies:

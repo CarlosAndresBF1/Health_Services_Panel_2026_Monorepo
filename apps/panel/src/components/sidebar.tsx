@@ -2,12 +2,32 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { logout } from '@/lib/auth';
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
+}
+
+function HamburgerIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
 }
 
 function LayoutIcon() {
@@ -56,26 +76,25 @@ const NAV_ITEMS: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  return (
-    <aside
-      className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r"
-      style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.08)' }}
-    >
-      {/* Brand */}
-      <div
-        className="flex h-16 items-center gap-3 border-b px-5"
-        style={{ borderColor: 'rgba(255,255,255,0.08)' }}
-      >
-        <div className="flex items-center gap-2.5">
-          <img src="/logo.svg" alt="HealthPanel" className="h-8 w-8" />
-          <span className="text-lg font-bold tracking-tight">
-            <span style={{ color: '#C8A951' }}>Health</span>
-            <span className="text-text-primary">Panel</span>
-          </span>
-        </div>
-      </div>
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
+
+  const navContent = (
+    <>
       {/* Navigation */}
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
         {NAV_ITEMS.map((item) => {
@@ -117,6 +136,84 @@ export function Sidebar() {
           Sign out
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* ── Mobile top bar ─────────────────────────────────── */}
+      <header
+        className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b px-4 md:hidden"
+        style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.08)' }}
+      >
+        <div className="flex items-center gap-2.5">
+          <img src="/logo.svg" alt="HealthPanel" className="h-7 w-7" />
+          <span className="text-base font-bold tracking-tight">
+            <span style={{ color: '#C8A951' }}>Health</span>
+            <span className="text-text-primary">Panel</span>
+          </span>
+        </div>
+        <button
+          onClick={() => setMobileOpen((v) => !v)}
+          className="rounded-lg p-2 text-text-muted transition-colors hover:bg-white/5 hover:text-text-primary"
+          aria-label="Toggle menu"
+        >
+          {mobileOpen ? <CloseIcon /> : <HamburgerIcon />}
+        </button>
+      </header>
+
+      {/* ── Mobile overlay backdrop ────────────────────────── */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* ── Mobile drawer ──────────────────────────────────── */}
+      <aside
+        className={[
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r transition-transform duration-300 ease-in-out md:hidden',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+        ].join(' ')}
+        style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.08)' }}
+      >
+        {/* Brand */}
+        <div
+          className="flex h-14 items-center gap-3 border-b px-4"
+          style={{ borderColor: 'rgba(255,255,255,0.08)' }}
+        >
+          <div className="flex items-center gap-2.5">
+            <img src="/logo.svg" alt="HealthPanel" className="h-7 w-7" />
+            <span className="text-base font-bold tracking-tight">
+              <span style={{ color: '#C8A951' }}>Health</span>
+              <span className="text-text-primary">Panel</span>
+            </span>
+          </div>
+        </div>
+        {navContent}
+      </aside>
+
+      {/* ── Desktop sidebar (always visible ≥ md) ─────────── */}
+      <aside
+        className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r md:flex"
+        style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.08)' }}
+      >
+        {/* Brand */}
+        <div
+          className="flex h-16 items-center gap-3 border-b px-5"
+          style={{ borderColor: 'rgba(255,255,255,0.08)' }}
+        >
+          <div className="flex items-center gap-2.5">
+            <img src="/logo.svg" alt="HealthPanel" className="h-8 w-8" />
+            <span className="text-lg font-bold tracking-tight">
+              <span style={{ color: '#C8A951' }}>Health</span>
+              <span className="text-text-primary">Panel</span>
+            </span>
+          </div>
+        </div>
+        {navContent}
+      </aside>
+    </>
   );
 }

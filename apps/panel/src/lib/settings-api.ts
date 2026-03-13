@@ -7,6 +7,7 @@ export interface SettingsResponse {
   alert_min_interval_ms: number;
   resource_disk_threshold_percent: number;
   resource_memory_threshold_percent: number;
+  domain_alert_days_before: number;
 }
 
 export interface UpdateSettingsDto {
@@ -16,6 +17,7 @@ export interface UpdateSettingsDto {
   alert_min_interval_ms?: number;
   resource_disk_threshold_percent?: number;
   resource_memory_threshold_percent?: number;
+  domain_alert_days_before?: number;
 }
 
 export interface ChangePasswordDto {

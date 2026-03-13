@@ -19,3 +19,4 @@ export const ALERT_RATE_LIMIT_MS = 5 * 60 * 1000; // 5 minutes between alerts
 export const DEFAULT_DISK_THRESHOLD_PERCENT = 90; // alert when disk usage >= 90%
 export const DEFAULT_MEMORY_THRESHOLD_PERCENT = 90; // alert when memory usage >= 90%
 export const RESOURCE_ALERT_COOLDOWN_MS = 30 * 60 * 1000; // 30 min cooldown between resource alerts per service
+export const DEFAULT_DOMAIN_ALERT_DAYS = 30; // alert when domain expires within 30 days

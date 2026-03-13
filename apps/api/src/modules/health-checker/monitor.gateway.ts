@@ -9,6 +9,7 @@ import {
 import { Server, Socket } from "socket.io";
 
 import {
+  WsDomainExpiryWarning,
   WsEvent,
   WsHealthUpdate,
   WsIncidentNew,
@@ -60,5 +61,9 @@ export class MonitorGateway
 
   emitResourceWarning(payload: WsResourceWarning): void {
     this.server.emit(WsEvent.RESOURCE_WARNING, payload);
+  }
+
+  emitDomainExpiryWarning(payload: WsDomainExpiryWarning): void {
+    this.server.emit(WsEvent.DOMAIN_EXPIRY_WARNING, payload);
   }
 }

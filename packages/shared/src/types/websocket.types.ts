@@ -5,6 +5,7 @@ export enum WsEvent {
   INCIDENT_RESOLVED = "incident:resolved",
   SERVICE_UPDATE = "service:update",
   RESOURCE_WARNING = "resource:warning",
+  DOMAIN_EXPIRY_WARNING = "domain:expiry:warning",
 }
 
 // WebSocket payloads
@@ -41,4 +42,13 @@ export interface WsIncidentResolved {
   serviceId: number;
   serviceName: string;
   resolvedAt: string;
+}
+
+export interface WsDomainExpiryWarning {
+  serviceId: number;
+  serviceName: string;
+  domain: string;
+  expiresAt: string | null;
+  daysUntilExpiry: number | null;
+  status: "expiring_soon" | "expired";
 }

@@ -10,6 +10,10 @@ import {
   RESOURCE_WARNING_EVENT,
   type ResourceWarningEvent,
 } from "../health-checker/health-checker.service";
+import {
+  DOMAIN_EXPIRY_WARNING_EVENT,
+  type DomainExpiryWarningEvent,
+} from "../domain/domain-checker.service";
 import { AlertOrchestratorService } from "./alert-orchestrator.service";
 import { AlertsService } from "./alerts.service";
 
@@ -36,5 +40,15 @@ export class AlertEventListener {
       service: event.service,
       warnings: event.warnings,
     });
+  }
+
+  @OnEvent(DOMAIN_EXPIRY_WARNING_EVENT, { async: true })
+  async handleDomainExpiryWarning(
+    event: DomainExpiryWarningEvent,
+  ): Promise<void> {
+    await this.alertsService.sendDomainExpiryAlert(
+      event.service,
+      event.domainCheck,
+    );
   }
 }

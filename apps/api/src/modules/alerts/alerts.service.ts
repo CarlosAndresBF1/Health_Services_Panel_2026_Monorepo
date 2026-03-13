@@ -8,6 +8,7 @@ import { ALERT_RATE_LIMIT_MS } from "@healthpanel/shared";
 import { Incident } from "../../database/entities/incident.entity";
 import { Service } from "../../database/entities/service.entity";
 import { Setting } from "../../database/entities/setting.entity";
+import { DomainCheck } from "../../database/entities/domain-check.entity";
 
 export interface AlertPayload {
   incident: Incident;
@@ -485,6 +486,98 @@ export class AlertsService {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  // ── Domain expiry alert ───────────────────────────────────────────────────
+
+  async sendDomainExpiryAlert(
+    service: Service,
+    domainCheck: DomainCheck,
+  ): Promise<boolean> {
+    if (!this.configured) {
+      this.logger.warn("SendGrid not configured, skipping domain alert");
+      return false;
+    }
+
+    if (!service.alertsEnabled) return false;
+
+    const globalEnabled = await this.isGloballyEnabled();
+    if (!globalEnabled) return false;
+
+    const emailTo = await this.getEmailTo();
+    const emailFrom = await this.getEmailFrom();
+    const dashboardUrl = process.env["PANEL_URL"] ?? "http://localhost:3000";
+
+    const isExpired = domainCheck.status === "expired";
+    const subject = isExpired
+      ? `🔴 Domain EXPIRED: ${domainCheck.domain} (${service.name})`
+      : `⚠️ Domain Expiring Soon: ${domainCheck.domain} (${service.name})`;
+
+    const daysText =
+      domainCheck.daysUntilExpiry !== null
+        ? isExpired
+          ? `Expired ${Math.abs(domainCheck.daysUntilExpiry)} day(s) ago`
+          : `Expires in ${domainCheck.daysUntilExpiry} day(s)`
+        : "Expiry date unknown";
+
+    const expiresAtText = domainCheck.expiresAt
+      ? new Date(domainCheck.expiresAt).toUTCString()
+      : "Unknown";
+
+    const accentColor = isExpired ? "#EF4444" : "#F59E0B";
+    const icon = isExpired ? "🔴" : "⚠️";
+
+    const html = `<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#0A0F1A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;padding:32px 24px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <h1 style="color:${accentColor};font-size:24px;margin:0;">${icon} Domain ${isExpired ? "Expired" : "Expiring Soon"}</h1>
+      <p style="color:#9CA3AF;font-size:14px;margin:8px 0 0;">HealthPanel Alert</p>
+    </div>
+    <div style="background:#111827;border:1px solid rgba(${isExpired ? "239,68,68" : "245,158,11"},0.3);border-radius:12px;padding:24px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="color:#9CA3AF;font-size:12px;text-transform:uppercase;padding:8px 0;font-family:monospace;">Service</td>
+          <td style="color:#F3F4F6;font-size:14px;text-align:right;padding:8px 0;font-weight:600;">${this.escapeHtml(service.name)}</td>
+        </tr>
+        <tr style="border-top:1px solid rgba(255,255,255,0.06);">
+          <td style="color:#9CA3AF;font-size:12px;text-transform:uppercase;padding:8px 0;font-family:monospace;">Domain</td>
+          <td style="color:#60A5FA;font-size:14px;text-align:right;padding:8px 0;">${this.escapeHtml(domainCheck.domain)}</td>
+        </tr>
+        <tr style="border-top:1px solid rgba(255,255,255,0.06);">
+          <td style="color:#9CA3AF;font-size:12px;text-transform:uppercase;padding:8px 0;font-family:monospace;">Status</td>
+          <td style="color:${accentColor};font-size:14px;text-align:right;padding:8px 0;font-weight:700;">${daysText}</td>
+        </tr>
+        <tr style="border-top:1px solid rgba(255,255,255,0.06);">
+          <td style="color:#9CA3AF;font-size:12px;text-transform:uppercase;padding:8px 0;font-family:monospace;">Expiry Date</td>
+          <td style="color:#F3F4F6;font-size:14px;text-align:right;padding:8px 0;">${this.escapeHtml(expiresAtText)}</td>
+        </tr>
+        ${domainCheck.registrar ? `<tr style="border-top:1px solid rgba(255,255,255,0.06);"><td style="color:#9CA3AF;font-size:12px;text-transform:uppercase;padding:8px 0;font-family:monospace;">Registrar</td><td style="color:#F3F4F6;font-size:14px;text-align:right;padding:8px 0;">${this.escapeHtml(domainCheck.registrar)}</td></tr>` : ""}
+      </table>
+    </div>
+    <div style="text-align:center;margin-top:24px;">
+      <a href="${this.escapeHtml(`${dashboardUrl}/services/${service.id}`)}" style="display:inline-block;background:#C8A951;color:#0A0F1A;text-decoration:none;padding:12px 32px;border-radius:8px;font-weight:600;font-size:14px;">View in Dashboard</a>
+    </div>
+    <p style="color:#6B7280;font-size:12px;text-align:center;margin-top:32px;">This is an automated alert from HealthPanel.</p>
+  </div>
+</body>
+</html>`;
+
+    try {
+      await sgMail.send({ to: emailTo, from: emailFrom, subject, html });
+      this.logger.log(
+        `Domain alert sent for "${domainCheck.domain}" (${service.name}) to ${emailTo}`,
+      );
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Failed to send domain alert for "${domainCheck.domain}":`,
+        error,
+      );
+      return false;
+    }
+  }
   }
 
   private formatDuration(start: Date, end: Date): string {

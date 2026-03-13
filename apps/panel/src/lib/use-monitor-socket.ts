@@ -10,6 +10,7 @@ export const WsEvent = {
   INCIDENT_RESOLVED: "incident:resolved",
   SERVICE_UPDATE: "service:update",
   RESOURCE_WARNING: "resource:warning",
+  DOMAIN_EXPIRY_WARNING: "domain:expiry:warning",
 } as const;
 
 export interface WsHealthUpdate {
@@ -47,12 +48,22 @@ export interface WsResourceWarning {
   timestamp: string;
 }
 
+export interface WsDomainExpiryWarning {
+  serviceId: number;
+  serviceName: string;
+  domain: string;
+  expiresAt: string | null;
+  daysUntilExpiry: number | null;
+  status: "expiring_soon" | "expired";
+}
+
 type EventHandlers = {
   onHealthUpdate?: (data: WsHealthUpdate) => void;
   onIncidentNew?: (data: WsIncidentNew) => void;
   onIncidentResolved?: (data: WsIncidentResolved) => void;
   onServiceUpdate?: (data: { serviceId: number }) => void;
   onResourceWarning?: (data: WsResourceWarning) => void;
+  onDomainExpiryWarning?: (data: WsDomainExpiryWarning) => void;
 };
 
 // If NEXT_PUBLIC_WS_URL is set (dev), connect to that host.
@@ -95,6 +106,10 @@ export function useMonitorSocket(handlers: EventHandlers): void {
 
     socket.on(WsEvent.RESOURCE_WARNING, (data: WsResourceWarning) => {
       handlersRef.current.onResourceWarning?.(data);
+    });
+
+    socket.on(WsEvent.DOMAIN_EXPIRY_WARNING, (data: WsDomainExpiryWarning) => {
+      handlersRef.current.onDomainExpiryWarning?.(data);
     });
 
     return () => {
