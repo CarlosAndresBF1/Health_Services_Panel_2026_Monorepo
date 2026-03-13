@@ -56,7 +56,7 @@ const WHOIS_SERVERS: Record<string, string> = {
 
 const WHOIS_PORT = 43;
 const WHOIS_TIMEOUT_MS = 15_000;
-const DEFAULT_ALERT_DAYS = 30;
+const DEFAULT_ALERT_DAYS = 3;
 
 // ─── Regex patterns to extract expiry date from WHOIS raw text ────────────
 const EXPIRY_PATTERNS = [
@@ -212,14 +212,19 @@ export class DomainCheckerService {
 
     const raw = await this.tcpWhois(domain, whoisServer);
 
-    // For IANA referrals, follow to actual registrar WHOIS
-    const referMatch = raw.match(/refer:\s*(\S+)/i);
+    // Follow referrals to actual registrar WHOIS (IANA "refer:" or VeriSign "Registrar WHOIS Server:")
     let finalRaw = raw;
-    if (referMatch?.[1] && whoisServer === "whois.iana.org") {
-      try {
-        finalRaw = await this.tcpWhois(domain, referMatch[1]);
-      } catch {
-        finalRaw = raw;
+    const referMatch =
+      raw.match(/refer:\s*(\S+)/i) ??
+      raw.match(/Registrar WHOIS Server:\s*(\S+)/i);
+    if (referMatch?.[1]) {
+      const referralServer = referMatch[1].trim();
+      if (referralServer !== whoisServer) {
+        try {
+          finalRaw = await this.tcpWhois(domain, referralServer);
+        } catch {
+          finalRaw = raw;
+        }
       }
     }
 
@@ -300,7 +305,47 @@ export class DomainCheckerService {
       if (hostname.startsWith("www.")) hostname = hostname.slice(4);
       // Validate it's a real domain
       if (!hostname.includes(".")) return null;
-      return hostname.toLowerCase();
+
+      // Extract the registered domain (strip subdomains)
+      const parts = hostname.split(".");
+      if (parts.length <= 2) return hostname.toLowerCase();
+
+      // Known second-level TLDs where the registered domain is three parts
+      const knownSlds = [
+        "co.uk",
+        "org.uk",
+        "net.uk",
+        "com.br",
+        "com.ar",
+        "com.mx",
+        "com.au",
+        "co.nz",
+        "co.za",
+        "co.jp",
+        "co.kr",
+        "co.in",
+        "com.co",
+        "com.pe",
+        "com.ve",
+        "com.ec",
+        "com.uy",
+        "com.py",
+        "com.bo",
+        "com.gt",
+        "com.sv",
+        "com.hn",
+        "com.ni",
+        "com.pa",
+        "com.do",
+        "com.pr",
+      ];
+      const lastTwo = parts.slice(-2).join(".");
+      if (knownSlds.includes(lastTwo) && parts.length >= 3) {
+        return parts.slice(-3).join(".").toLowerCase();
+      }
+
+      // Default: registered domain = last two parts
+      return parts.slice(-2).join(".").toLowerCase();
     } catch {
       return null;
     }

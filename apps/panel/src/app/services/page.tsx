@@ -274,9 +274,9 @@ function ServiceFormModal({
               />
             </div>
 
-            {categories.length > 0 && (
-              <div className="col-span-2">
-                <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Category</label>
+            <div className="col-span-2">
+              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Category</label>
+              {categories.length > 0 ? (
                 <select
                   className={inputClass}
                   style={inputStyle}
@@ -293,8 +293,13 @@ function ServiceFormModal({
                     </option>
                   ))}
                 </select>
-              </div>
-            )}
+              ) : (
+                <p className="text-xs text-text-muted py-2">
+                  No categories yet.{' '}
+                  <a href="/settings" className="text-accent hover:underline">Create categories in Settings</a>
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-6 pt-1">
@@ -547,21 +552,21 @@ export default function ServicesPage() {
       </div>
 
       {/* Category filter */}
-      {categories.length > 0 && (
-        <div className="mb-6 flex flex-wrap items-center gap-2">
-          <span className="font-mono text-xs text-text-muted uppercase tracking-wider mr-1">Filter:</span>
-          <button
-            onClick={() => setFilterCategoryId(undefined)}
-            className="rounded-full px-3 py-1 font-mono text-xs transition-colors"
-            style={{
-              backgroundColor: filterCategoryId === undefined ? 'rgba(200,169,81,0.2)' : 'rgba(255,255,255,0.05)',
-              color: filterCategoryId === undefined ? '#C8A951' : '#9CA3AF',
-              border: `1px solid ${filterCategoryId === undefined ? 'rgba(200,169,81,0.4)' : 'rgba(255,255,255,0.1)'}`,
-            }}
-          >
-            All
-          </button>
-          {categories.map((c) => (
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <span className="font-mono text-xs text-text-muted uppercase tracking-wider mr-1">Filter:</span>
+        <button
+          onClick={() => setFilterCategoryId(undefined)}
+          className="rounded-full px-3 py-1 font-mono text-xs transition-colors"
+          style={{
+            backgroundColor: filterCategoryId === undefined ? 'rgba(200,169,81,0.2)' : 'rgba(255,255,255,0.05)',
+            color: filterCategoryId === undefined ? '#C8A951' : '#9CA3AF',
+            border: `1px solid ${filterCategoryId === undefined ? 'rgba(200,169,81,0.4)' : 'rgba(255,255,255,0.1)'}`,
+          }}
+        >
+          All
+        </button>
+        {categories.length > 0 ? (
+          categories.map((c) => (
             <button
               key={c.id}
               onClick={() => setFilterCategoryId(filterCategoryId === c.id ? undefined : c.id)}
@@ -577,9 +582,13 @@ export default function ServicesPage() {
               )}
               {c.name}
             </button>
-          ))}
-        </div>
-      )}
+          ))
+        ) : (
+          <a href="/settings" className="rounded-full px-3 py-1 font-mono text-xs text-text-muted hover:text-accent transition-colors" style={{ border: '1px dashed rgba(255,255,255,0.15)' }}>
+            + Create categories in Settings
+          </a>
+        )}
+      </div>
 
       {loading ? (
         <div className="space-y-3">

@@ -346,6 +346,19 @@ export default function DashboardPage() {
   const downCount = Object.values(statusMap).filter((c) => c.status === 'down').length;
   const degradedCount = Object.values(statusMap).filter((c) => c.status === 'degraded').length;
 
+  // Services that are currently DOWN
+  const downServices = allServices.filter(
+    (s) => s.isActive && statusMap[s.id]?.status === 'down',
+  );
+
+  // Domain expiry warnings (expiring soon or expired)
+  const domainAlerts = allServices
+    .map((s) => ({ service: s, dc: domainMap[s.id] }))
+    .filter(
+      ({ dc }) =>
+        dc && (dc.status === 'expiring_soon' || dc.status === 'expired'),
+    ) as { service: ServiceRecord; dc: DomainCheckRecord }[];
+
   return (
     <DashboardShell
       title="Dashboard"
@@ -400,6 +413,95 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Services DOWN banner */}
+      {downServices.length > 0 && (
+        <div className="mb-6">
+          <div
+            className="rounded-lg border px-4 py-3 text-sm"
+            style={{
+              backgroundColor: 'rgba(239,68,68,0.08)',
+              borderColor: 'rgba(239,68,68,0.25)',
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 text-base">🔴</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold" style={{ color: '#EF4444' }}>
+                  {downServices.length} {downServices.length === 1 ? 'service is' : 'services are'} DOWN
+                </p>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {downServices.map((s) => (
+                    <Link
+                      key={s.id}
+                      href={`/services/${s.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-xs transition-colors hover:bg-red-500/20"
+                      style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#FCA5A5' }}
+                    >
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />
+                      {s.name}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Domain expiry warnings banner */}
+      {domainAlerts.length > 0 && (
+        <div className="mb-6">
+          <div
+            className="rounded-lg border px-4 py-3 text-sm"
+            style={{
+              backgroundColor: domainAlerts.some(({ dc }) => dc.status === 'expired')
+                ? 'rgba(239,68,68,0.08)'
+                : 'rgba(245,158,11,0.08)',
+              borderColor: domainAlerts.some(({ dc }) => dc.status === 'expired')
+                ? 'rgba(239,68,68,0.25)'
+                : 'rgba(245,158,11,0.25)',
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 text-base">🌐</span>
+              <div className="min-w-0 flex-1">
+                <p
+                  className="font-semibold"
+                  style={{
+                    color: domainAlerts.some(({ dc }) => dc.status === 'expired') ? '#EF4444' : '#F59E0B',
+                  }}
+                >
+                  Domain Expiry {domainAlerts.some(({ dc }) => dc.status === 'expired') ? 'Alert' : 'Warning'}
+                </p>
+                <div className="mt-1 space-y-1">
+                  {domainAlerts.map(({ service, dc }) => (
+                    <Link
+                      key={service.id}
+                      href={`/services/${service.id}`}
+                      className="flex items-center gap-2 rounded px-2 py-1 font-mono text-xs transition-colors hover:bg-white/5"
+                    >
+                      <span
+                        className="inline-block h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: dc.status === 'expired' ? '#EF4444' : '#F59E0B' }}
+                      />
+                      <span className="text-text-primary font-medium">{service.name}</span>
+                      <span className="text-text-muted">({dc.domain})</span>
+                      <span style={{ color: dc.status === 'expired' ? '#EF4444' : '#F59E0B' }}>
+                        {dc.status === 'expired'
+                          ? '— Domain expired'
+                          : dc.daysUntilExpiry !== null
+                          ? `— Expires in ${dc.daysUntilExpiry}d`
+                          : '— Expiring soon'}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search bar */}
       <div className="mb-4">
         <div className="relative">
@@ -434,21 +536,21 @@ export default function DashboardPage() {
       </div>
 
       {/* Category filter */}
-      {categories.length > 0 && (
-        <div className="mb-6 flex flex-wrap items-center gap-2">
-          <span className="font-mono text-xs text-text-muted uppercase tracking-wider mr-1">Filter:</span>
-          <button
-            onClick={() => setFilterCategoryId(undefined)}
-            className="rounded-full px-3 py-1 font-mono text-xs transition-colors"
-            style={{
-              backgroundColor: filterCategoryId === undefined ? 'rgba(200,169,81,0.2)' : 'rgba(255,255,255,0.05)',
-              color: filterCategoryId === undefined ? '#C8A951' : '#9CA3AF',
-              border: `1px solid ${filterCategoryId === undefined ? 'rgba(200,169,81,0.4)' : 'rgba(255,255,255,0.1)'}`,
-            }}
-          >
-            All
-          </button>
-          {categories.map((c) => (
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <span className="font-mono text-xs text-text-muted uppercase tracking-wider mr-1">Filter:</span>
+        <button
+          onClick={() => setFilterCategoryId(undefined)}
+          className="rounded-full px-3 py-1 font-mono text-xs transition-colors"
+          style={{
+            backgroundColor: filterCategoryId === undefined ? 'rgba(200,169,81,0.2)' : 'rgba(255,255,255,0.05)',
+            color: filterCategoryId === undefined ? '#C8A951' : '#9CA3AF',
+            border: `1px solid ${filterCategoryId === undefined ? 'rgba(200,169,81,0.4)' : 'rgba(255,255,255,0.1)'}`,
+          }}
+        >
+          All
+        </button>
+        {categories.length > 0 ? (
+          categories.map((c) => (
             <button
               key={c.id}
               onClick={() => setFilterCategoryId(filterCategoryId === c.id ? undefined : c.id)}
@@ -464,9 +566,13 @@ export default function DashboardPage() {
               )}
               {c.name}
             </button>
-          ))}
-        </div>
-      )}
+          ))
+        ) : (
+          <a href="/settings" className="rounded-full px-3 py-1 font-mono text-xs text-text-muted hover:text-accent transition-colors" style={{ border: '1px dashed rgba(255,255,255,0.15)' }}>
+            + Create categories in Settings
+          </a>
+        )}
+      </div>
 
       {/* Stats */}
       {services.length > 0 && (
