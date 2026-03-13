@@ -474,6 +474,7 @@ function ScreenshotPreview({ serviceId }: { serviceId: number }) {
   const [capturing, setCapturing] = useState(false);
   const [imgKey, setImgKey] = useState(0);
   const previewSrc = servicePreviewUrl(serviceId);
+  const checkPreview = useCallback(() => {
     fetch(previewSrc, { method: 'HEAD' })
       .then((res) => setHasPreview(res.ok))
       .catch(() => setHasPreview(false));
@@ -1039,7 +1040,6 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
   const [resourceWarning, setResourceWarning] = useState<WsResourceWarning | null>(null);
   // Domain check
   const [domainCheck, setDomainCheck] = useState<DomainCheckRecord | null>(null);
-  const [domainChecking, setDomainChecking] = useState(false);
 
   // Load service
   useEffect(() => {

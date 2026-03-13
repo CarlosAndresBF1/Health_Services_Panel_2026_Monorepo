@@ -1,3 +1,4 @@
+export { Category } from "./category.entity";
 export { DomainCheck } from "./domain-check.entity";
 export { HealthCheck } from "./health-check.entity";
 export { Incident } from "./incident.entity";

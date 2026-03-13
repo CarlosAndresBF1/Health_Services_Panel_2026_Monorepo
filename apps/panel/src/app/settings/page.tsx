@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { DashboardShell } from '@/components/dashboard-shell';
 import { settingsApi, type SettingsResponse, type UpdateSettingsDto, type ChangePasswordDto } from '@/lib/settings-api';
+import { categoriesApi, type CategoryRecord } from '@/lib/categories-api';
 
 const INTERVAL_OPTIONS = [
   { label: '1 minute', value: 60_000 },
@@ -35,6 +36,22 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
+  // Categories state
+  const [categories, setCategories] = useState<CategoryRecord[]>([]);
+  const [catName, setCatName] = useState('');
+  const [catColor, setCatColor] = useState('#C8A951');
+  const [editingCat, setEditingCat] = useState<CategoryRecord | null>(null);
+  const [catBusy, setCatBusy] = useState(false);
+
+  const loadCategories = useCallback(async () => {
+    try {
+      const data = await categoriesApi.list();
+      setCategories(data);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const loadSettings = useCallback(async () => {
     try {
       const data = await settingsApi.get();
@@ -55,7 +72,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     void loadSettings();
-  }, [loadSettings]);
+    void loadCategories();
+  }, [loadSettings, loadCategories]);
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -120,6 +138,41 @@ export default function SettingsPage() {
       setToast({ type: 'error', message: err instanceof Error ? err.message : 'Failed to change password' });
     } finally {
       setChangingPassword(false);
+    }
+  }
+
+  async function handleSaveCategory() {
+    if (!catName.trim()) return;
+    setCatBusy(true);
+    try {
+      if (editingCat) {
+        await categoriesApi.update(editingCat.id, { name: catName.trim(), color: catColor });
+        setToast({ type: 'success', message: 'Category updated' });
+      } else {
+        await categoriesApi.create({ name: catName.trim(), color: catColor });
+        setToast({ type: 'success', message: 'Category created' });
+      }
+      setCatName('');
+      setCatColor('#C8A951');
+      setEditingCat(null);
+      await loadCategories();
+    } catch (err) {
+      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Failed to save category' });
+    } finally {
+      setCatBusy(false);
+    }
+  }
+
+  async function handleDeleteCategory(id: number) {
+    setCatBusy(true);
+    try {
+      await categoriesApi.delete(id);
+      setToast({ type: 'success', message: 'Category deleted' });
+      await loadCategories();
+    } catch (err) {
+      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Failed to delete category' });
+    } finally {
+      setCatBusy(false);
     }
   }
 
@@ -424,6 +477,107 @@ export default function SettingsPage() {
             )}
           </button>
         </div>
+      </div>
+
+      {/* Categories */}
+      <div
+        className="mt-6 rounded-xl border p-6"
+        style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.08)' }}
+      >
+        <h2 className="text-base font-semibold text-text-primary mb-1">Service Categories</h2>
+        <p className="text-sm text-text-muted mb-6">
+          Organize services by client, project, or any custom grouping. Categories are optional.
+        </p>
+
+        {/* Add / Edit Category form */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end mb-6">
+          <div className="flex-1">
+            <label htmlFor="catName" className="block text-sm font-medium text-text-primary mb-1.5">
+              {editingCat ? 'Edit Category' : 'New Category'}
+            </label>
+            <input
+              id="catName"
+              type="text"
+              value={catName}
+              onChange={(e) => setCatName(e.target.value)}
+              placeholder="e.g. Client A, Production, Staging"
+              maxLength={100}
+              className="w-full rounded-lg border px-3 py-2 text-sm text-text-primary placeholder-text-muted outline-none transition-colors focus:border-accent"
+              style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}
+            />
+          </div>
+          <div className="w-24 shrink-0">
+            <label htmlFor="catColor" className="block text-sm font-medium text-text-primary mb-1.5">
+              Color
+            </label>
+            <input
+              id="catColor"
+              type="color"
+              value={catColor}
+              onChange={(e) => setCatColor(e.target.value)}
+              className="h-[38px] w-full cursor-pointer rounded-lg border p-1"
+              style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}
+            />
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => void handleSaveCategory()}
+              disabled={catBusy || !catName.trim()}
+              className="rounded-lg px-4 py-2 text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ backgroundColor: '#C8A951', color: '#0A0F1A' }}
+            >
+              {catBusy ? 'Saving…' : editingCat ? 'Update' : 'Add'}
+            </button>
+            {editingCat && (
+              <button
+                onClick={() => { setEditingCat(null); setCatName(''); setCatColor('#C8A951'); }}
+                className="rounded-lg border px-4 py-2 text-sm text-text-muted transition-colors hover:text-text-primary"
+                style={{ borderColor: 'rgba(255,255,255,0.12)' }}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Category list */}
+        {categories.length === 0 ? (
+          <p className="text-sm text-text-muted">No categories yet. Create one above to start grouping services.</p>
+        ) : (
+          <div className="space-y-2">
+            {categories.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between rounded-lg border px-4 py-3"
+                style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.08)' }}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className="inline-block h-3 w-3 rounded-full"
+                    style={{ backgroundColor: c.color ?? '#6B7280' }}
+                  />
+                  <span className="text-sm font-medium text-text-primary">{c.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { setEditingCat(c); setCatName(c.name); setCatColor(c.color ?? '#C8A951'); }}
+                    className="font-mono text-xs text-text-muted hover:text-accent transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <span className="text-text-muted/30">|</span>
+                  <button
+                    onClick={() => void handleDeleteCategory(c.id)}
+                    disabled={catBusy}
+                    className="font-mono text-xs text-text-muted hover:text-status-down transition-colors disabled:opacity-40"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Info card */}

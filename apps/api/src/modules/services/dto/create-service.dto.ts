@@ -47,4 +47,8 @@ export class CreateServiceDto {
   @IsOptional()
   @IsBoolean()
   alertsEnabled?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  categoryId?: number;
 }

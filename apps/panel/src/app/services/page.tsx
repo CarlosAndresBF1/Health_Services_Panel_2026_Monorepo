@@ -11,6 +11,10 @@ import {
   type ServiceWithSecret,
   type CreateServicePayload,
 } from '@/lib/services-api';
+import {
+  categoriesApi,
+  type CategoryRecord,
+} from '@/lib/categories-api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -132,6 +136,7 @@ interface ServiceFormData {
   checkIntervalSeconds: number;
   isActive: boolean;
   alertsEnabled: boolean;
+  categoryId: number | null;
 }
 
 const defaultForm: ServiceFormData = {
@@ -143,6 +148,7 @@ const defaultForm: ServiceFormData = {
   checkIntervalSeconds: 60,
   isActive: true,
   alertsEnabled: true,
+  categoryId: null,
 };
 
 function ServiceFormModal({
@@ -151,12 +157,14 @@ function ServiceFormModal({
   onSubmit,
   onClose,
   busy,
+  categories,
 }: {
   initial?: ServiceRecord;
   title: string;
   onSubmit: (data: ServiceFormData) => void;
   onClose: () => void;
   busy: boolean;
+  categories: CategoryRecord[];
 }) {
   const [form, setForm] = useState<ServiceFormData>(
     initial
@@ -169,6 +177,7 @@ function ServiceFormModal({
           checkIntervalSeconds: initial.checkIntervalSeconds,
           isActive: initial.isActive,
           alertsEnabled: initial.alertsEnabled,
+          categoryId: initial.categoryId ?? null,
         }
       : defaultForm
   );
@@ -264,6 +273,28 @@ function ServiceFormModal({
                 onChange={(e) => field('logsEndpoint', e.target.value)}
               />
             </div>
+
+            {categories.length > 0 && (
+              <div className="col-span-2">
+                <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Category</label>
+                <select
+                  className={inputClass}
+                  style={inputStyle}
+                  value={form.categoryId ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm((prev) => ({ ...prev, categoryId: val ? Number(val) : null }));
+                  }}
+                >
+                  <option value="" style={{ backgroundColor: '#0A0F1A' }}>No category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id} style={{ backgroundColor: '#0A0F1A' }}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-6 pt-1">
@@ -364,22 +395,40 @@ type Modal =
   | { type: 'credentials'; service: ServiceWithSecret };
 
 export default function ServicesPage() {
-  const [services, setServices] = useState<ServiceRecord[]>([]);
+  const [allServices, setAllServices] = useState<ServiceRecord[]>([]);
+  const [categories, setCategories] = useState<CategoryRecord[]>([]);
+  const [filterCategoryId, setFilterCategoryId] = useState<number | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<Modal | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const services = allServices.filter((s) => {
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return s.name.toLowerCase().includes(q) || s.url.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
   const load = () => {
     setLoading(true);
     servicesApi
-      .list()
-      .then((res) => setServices(res.data))
+      .list(1, 50, filterCategoryId)
+      .then((res) => setAllServices(res.data))
       .catch(() => setError('Failed to load services'))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  const loadCategories = () => {
+    categoriesApi.list()
+      .then(setCategories)
+      .catch(() => { /* ignore */ });
+  };
+
+  useEffect(() => { loadCategories(); }, []);
+  useEffect(() => { load(); }, [filterCategoryId]);
 
   const handleCreate = async (form: ServiceFormData) => {
     setBusy(true);
@@ -388,6 +437,7 @@ export default function ServicesPage() {
         ...form,
         ...(form.healthEndpoint ? { healthEndpoint: form.healthEndpoint } : {}),
         ...(form.logsEndpoint ? { logsEndpoint: form.logsEndpoint } : {}),
+        categoryId: form.categoryId,
       };
       const result = await servicesApi.create(payload);
       setModal({ type: 'credentials', service: result });
@@ -463,6 +513,74 @@ export default function ServicesPage() {
         </div>
       )}
 
+      {/* Search bar */}
+      <div className="mb-4">
+        <div className="relative">
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search services by name or URL…"
+            className="w-full rounded-lg border py-2 pl-10 pr-10 text-sm text-text-primary placeholder-text-muted outline-none transition-colors focus:border-accent"
+            style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+              aria-label="Clear search"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Category filter */}
+      {categories.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <span className="font-mono text-xs text-text-muted uppercase tracking-wider mr-1">Filter:</span>
+          <button
+            onClick={() => setFilterCategoryId(undefined)}
+            className="rounded-full px-3 py-1 font-mono text-xs transition-colors"
+            style={{
+              backgroundColor: filterCategoryId === undefined ? 'rgba(200,169,81,0.2)' : 'rgba(255,255,255,0.05)',
+              color: filterCategoryId === undefined ? '#C8A951' : '#9CA3AF',
+              border: `1px solid ${filterCategoryId === undefined ? 'rgba(200,169,81,0.4)' : 'rgba(255,255,255,0.1)'}`,
+            }}
+          >
+            All
+          </button>
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setFilterCategoryId(filterCategoryId === c.id ? undefined : c.id)}
+              className="rounded-full px-3 py-1 font-mono text-xs transition-colors flex items-center gap-1.5"
+              style={{
+                backgroundColor: filterCategoryId === c.id ? `${c.color ?? '#C8A951'}20` : 'rgba(255,255,255,0.05)',
+                color: filterCategoryId === c.id ? (c.color ?? '#C8A951') : '#9CA3AF',
+                border: `1px solid ${filterCategoryId === c.id ? `${c.color ?? '#C8A951'}66` : 'rgba(255,255,255,0.1)'}`,
+              }}
+            >
+              {c.color && (
+                <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />
+              )}
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
@@ -507,7 +625,21 @@ export default function ServicesPage() {
                 </div>
                 <div className="flex items-center justify-between text-xs text-text-muted mb-3">
                   <span className="font-mono">Every {s.checkIntervalSeconds}s</span>
-                  <span>{s.alertsEnabled ? '🔔 Alerts on' : '🔕 Alerts off'}</span>
+                  <div className="flex items-center gap-2">
+                    {s.categoryName && (
+                      <span
+                        className="flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-xs"
+                        style={{
+                          backgroundColor: `${s.categoryColor ?? '#6B7280'}15`,
+                          color: s.categoryColor ?? '#6B7280',
+                        }}
+                      >
+                        {s.categoryColor && <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.categoryColor }} />}
+                        {s.categoryName}
+                      </span>
+                    )}
+                    <span>{s.alertsEnabled ? '🔔 Alerts on' : '🔕 Alerts off'}</span>
+                  </div>
                 </div>
                 <div
                   className="flex items-center gap-3 border-t pt-3"
@@ -547,7 +679,7 @@ export default function ServicesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#111827' }}>
-                  {['Name', 'URL', 'Type', 'Interval', 'Status', 'Alerts', 'Actions'].map((h) => (
+                  {['Name', 'URL', 'Type', 'Category', 'Interval', 'Status', 'Alerts', 'Actions'].map((h) => (
                     <th
                       key={h}
                       className="px-4 py-3 text-left font-mono text-xs text-text-muted uppercase tracking-wider"
@@ -569,6 +701,22 @@ export default function ServicesPage() {
                     <td className="px-4 py-3 font-medium text-text-primary">{s.name}</td>
                     <td className="max-w-[180px] truncate px-4 py-3 font-mono text-xs text-text-muted">{s.url}</td>
                     <td className="px-4 py-3"><TypeBadge type={s.type} /></td>
+                    <td className="px-4 py-3">
+                      {s.categoryName ? (
+                        <span
+                          className="flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-xs w-fit"
+                          style={{
+                            backgroundColor: `${s.categoryColor ?? '#6B7280'}15`,
+                            color: s.categoryColor ?? '#6B7280',
+                          }}
+                        >
+                          {s.categoryColor && <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.categoryColor }} />}
+                          {s.categoryName}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-xs text-text-muted">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-mono text-xs text-text-muted">{s.checkIntervalSeconds}s</td>
                     <td className="px-4 py-3"><ActiveBadge active={s.isActive} /></td>
                     <td className="px-4 py-3 font-mono text-xs text-text-muted">{s.alertsEnabled ? '🔔 On' : '🔕 Off'}</td>
@@ -612,6 +760,7 @@ export default function ServicesPage() {
           onSubmit={handleCreate}
           onClose={() => setModal(null)}
           busy={busy}
+          categories={categories}
         />
       )}
       {modal?.type === 'edit' && (
@@ -621,6 +770,7 @@ export default function ServicesPage() {
           onSubmit={handleEdit}
           onClose={() => setModal(null)}
           busy={busy}
+          categories={categories}
         />
       )}
       {modal?.type === 'delete' && (

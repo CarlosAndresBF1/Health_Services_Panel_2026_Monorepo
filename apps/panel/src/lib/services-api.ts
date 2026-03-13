@@ -11,6 +11,9 @@ export interface ServiceRecord {
   checkIntervalSeconds: number;
   isActive: boolean;
   alertsEnabled: boolean;
+  categoryId: number | null;
+  categoryName: string | null;
+  categoryColor: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,13 +36,14 @@ export interface CreateServicePayload {
   checkIntervalSeconds?: number;
   isActive?: boolean;
   alertsEnabled?: boolean;
+  categoryId?: number | null;
 }
 
 export const servicesApi = {
-  list(page = 1, limit = 50): Promise<PaginatedServices> {
-    return apiClient.get<PaginatedServices>(
-      `/api/services?page=${page}&limit=${limit}`,
-    );
+  list(page = 1, limit = 50, categoryId?: number): Promise<PaginatedServices> {
+    let url = `/api/services?page=${page}&limit=${limit}`;
+    if (categoryId !== undefined) url += `&categoryId=${categoryId}`;
+    return apiClient.get<PaginatedServices>(url);
   },
 
   get(id: number): Promise<ServiceRecord> {

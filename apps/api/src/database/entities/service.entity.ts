@@ -2,14 +2,17 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from 'typeorm';
-import { HealthCheck } from './health-check.entity';
-import { Incident } from './incident.entity';
+} from "typeorm";
+import { Category } from "./category.entity";
+import { HealthCheck } from "./health-check.entity";
+import { Incident } from "./incident.entity";
 
-@Entity('services')
+@Entity("services")
 export class Service {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -20,40 +23,54 @@ export class Service {
   @Column({ length: 2048 })
   url!: string;
 
-  @Column({ type: 'enum', enum: ['api_nestjs', 'api_laravel', 'web_nextjs'] })
+  @Column({ type: "enum", enum: ["api_nestjs", "api_laravel", "web_nextjs"] })
   type!: string;
 
-  @Column({ name: 'health_endpoint', length: 255, default: '/health' })
+  @Column({ name: "health_endpoint", length: 255, default: "/health" })
   healthEndpoint!: string;
 
-  @Column({ name: 'logs_endpoint', length: 255, default: '/logs' })
+  @Column({ name: "logs_endpoint", length: 255, default: "/logs" })
   logsEndpoint!: string;
 
-  @Column({ name: 'monitor_api_key', length: 255 })
+  @Column({ name: "monitor_api_key", length: 255 })
   monitorApiKey!: string;
 
-  @Column({ name: 'monitor_secret', type: 'text' })
+  @Column({ name: "monitor_secret", type: "text" })
   monitorSecret!: string; // AES-256-GCM encrypted
 
-  @Column({ name: 'check_interval_seconds', default: 60 })
+  @Column({ name: "check_interval_seconds", default: 60 })
   checkIntervalSeconds!: number;
 
-  @Column({ name: 'is_active', default: true })
+  @Column({ name: "is_active", default: true })
   isActive!: boolean;
 
-  @Column({ name: 'alerts_enabled', default: true })
+  @Column({ name: "alerts_enabled", default: true })
   alertsEnabled!: boolean;
 
-  @Column({ name: 'deleted_at', nullable: true, type: 'timestamp with time zone' })
+  @Column({
+    name: "deleted_at",
+    nullable: true,
+    type: "timestamp with time zone",
+  })
   deletedAt!: Date | null; // soft delete
 
-  @CreateDateColumn({ name: 'created_at' })
+  @Column({ name: "category_id", nullable: true })
+  categoryId!: number | null;
+
+  @CreateDateColumn({ name: "created_at" })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: "updated_at" })
   updatedAt!: Date;
 
   // Relations
+  @ManyToOne(() => Category, (c) => c.services, {
+    nullable: true,
+    onDelete: "SET NULL",
+  })
+  @JoinColumn({ name: "category_id" })
+  category!: Category | null;
+
   @OneToMany(() => HealthCheck, (hc) => hc.service)
   healthChecks!: HealthCheck[];
 

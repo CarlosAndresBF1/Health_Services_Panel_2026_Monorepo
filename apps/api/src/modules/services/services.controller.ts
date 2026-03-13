@@ -30,10 +30,15 @@ export class ServicesController {
   }
 
   @Get()
-  findAll(@Query("page") page?: string, @Query("limit") limit?: string) {
+  findAll(
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+    @Query("categoryId") categoryId?: string,
+  ) {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 20;
-    return this.servicesService.findAll(pageNum, limitNum);
+    const catId = categoryId ? parseInt(categoryId, 10) : undefined;
+    return this.servicesService.findAll(pageNum, limitNum, catId);
   }
 
   @Get(":id")

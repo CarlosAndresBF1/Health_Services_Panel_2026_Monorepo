@@ -50,4 +50,8 @@ export class UpdateServiceDto {
   @IsOptional()
   @IsBoolean()
   alertsEnabled?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  categoryId?: number | null;
 }

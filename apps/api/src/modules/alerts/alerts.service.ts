@@ -578,7 +578,6 @@ export class AlertsService {
       return false;
     }
   }
-  }
 
   private formatDuration(start: Date, end: Date): string {
     const ms = end.getTime() - start.getTime();

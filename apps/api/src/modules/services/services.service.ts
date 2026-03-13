@@ -25,6 +25,9 @@ export interface ServiceResponse {
   checkIntervalSeconds: number;
   isActive: boolean;
   alertsEnabled: boolean;
+  categoryId: number | null;
+  categoryName: string | null;
+  categoryColor: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,6 +63,7 @@ export class ServicesService {
       checkIntervalSeconds: dto.checkIntervalSeconds ?? DEFAULT_CHECK_INTERVAL,
       isActive: dto.isActive ?? true,
       alertsEnabled: dto.alertsEnabled ?? true,
+      categoryId: dto.categoryId ?? null,
       deletedAt: null,
     });
 
@@ -74,9 +78,16 @@ export class ServicesService {
   async findAll(
     page = 1,
     limit = 20,
+    categoryId?: number,
   ): Promise<{ data: ServiceResponse[]; total: number }> {
+    const where: Record<string, unknown> = { deletedAt: IsNull() };
+    if (categoryId !== undefined) {
+      where.categoryId = categoryId;
+    }
+
     const [items, total] = await this.serviceRepository.findAndCount({
-      where: { deletedAt: IsNull() },
+      where,
+      relations: ["category"],
       order: { createdAt: "DESC" },
       skip: (page - 1) * limit,
       take: limit,
@@ -107,6 +118,7 @@ export class ServicesService {
     if (dto.isActive !== undefined) service.isActive = dto.isActive;
     if (dto.alertsEnabled !== undefined)
       service.alertsEnabled = dto.alertsEnabled;
+    if (dto.categoryId !== undefined) service.categoryId = dto.categoryId;
 
     const saved = await this.serviceRepository.save(service);
     return this.toResponse(saved);
@@ -142,6 +154,7 @@ export class ServicesService {
   private async findActiveById(id: number): Promise<Service> {
     const service = await this.serviceRepository.findOne({
       where: { id, deletedAt: IsNull() },
+      relations: ["category"],
     });
 
     if (!service) {
@@ -164,6 +177,9 @@ export class ServicesService {
       checkIntervalSeconds: service.checkIntervalSeconds,
       isActive: service.isActive,
       alertsEnabled: service.alertsEnabled,
+      categoryId: service.categoryId,
+      categoryName: service.category?.name ?? null,
+      categoryColor: service.category?.color ?? null,
       createdAt: service.createdAt,
       updatedAt: service.updatedAt,
     };

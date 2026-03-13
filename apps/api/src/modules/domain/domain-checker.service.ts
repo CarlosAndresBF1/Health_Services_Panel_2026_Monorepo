@@ -332,7 +332,7 @@ export class DomainCheckerService {
       domain: domainCheck.domain,
       expiresAt: domainCheck.expiresAt?.toISOString() ?? null,
       daysUntilExpiry: domainCheck.daysUntilExpiry,
-      status: domainCheck.status,
+      status: domainCheck.status as "expiring_soon" | "expired",
     });
   }
 
