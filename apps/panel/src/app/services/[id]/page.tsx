@@ -7,6 +7,7 @@ import { servicesApi, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, INTERVAL_OPTIONS
 import { healthApi, type HealthCheckRecord, type IncidentRecord, type PaginatedHealthChecks, type PaginatedIncidents, screenshotUrl, servicePreviewUrl, captureServiceScreenshot } from '@/lib/health-api';
 import { useMonitorSocket, type WsHealthUpdate, type WsIncidentNew, type WsIncidentResolved, type WsResourceWarning } from '@/lib/use-monitor-socket';
 import { domainApi, type DomainCheckRecord } from '@/lib/domain-api';
+import { ServiceFormModal, type ServiceFormData } from '@/components/service-form-modal';
 import { LogViewer } from '@/components/log-viewer';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -887,129 +888,6 @@ function IncidentsTab({
   );
 }
 
-// ─── Edit Service Modal ───────────────────────────────────────────────────────
-
-interface EditFormData {
-  name: string;
-  url: string;
-  type: ServiceType;
-  healthEndpoint: string;
-  logsEndpoint: string;
-  checkIntervalSeconds: number;
-  isActive: boolean;
-  alertsEnabled: boolean;
-}
-
-function EditServiceModal({
-  service,
-  onSave,
-  onClose,
-  busy,
-}: {
-  service: ServiceRecord;
-  onSave: (data: EditFormData) => void;
-  onClose: () => void;
-  busy: boolean;
-}) {
-  const [form, setForm] = useState<EditFormData>({
-    name: service.name,
-    url: service.url,
-    type: service.type as ServiceType,
-    healthEndpoint: service.healthEndpoint ?? '',
-    logsEndpoint: service.logsEndpoint ?? '',
-    checkIntervalSeconds: service.checkIntervalSeconds,
-    isActive: service.isActive,
-    alertsEnabled: service.alertsEnabled,
-  });
-
-  const field = (key: keyof EditFormData, value: string | number | boolean) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
-
-  const inputClass =
-    'w-full rounded-lg border px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent transition-colors';
-  const inputStyle = { backgroundColor: '#0A0F1A', borderColor: 'rgba(255,255,255,0.12)' };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
-      <div
-        className="w-full max-w-lg rounded-2xl border p-6 my-4"
-        style={{ backgroundColor: '#111827', borderColor: 'rgba(255,255,255,0.1)' }}
-      >
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-text-primary">Edit Service</h2>
-          <button onClick={onClose} className="text-text-muted hover:text-text-primary transition-colors">✕</button>
-        </div>
-
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Name *</label>
-              <input className={inputClass} style={inputStyle} value={form.name} onChange={(e) => field('name', e.target.value)} />
-            </div>
-            <div className="col-span-2">
-              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">URL *</label>
-              <input className={inputClass} style={inputStyle} value={form.url} onChange={(e) => field('url', e.target.value)} />
-            </div>
-            <div>
-              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Type *</label>
-              <select className={inputClass} style={inputStyle} value={form.type} onChange={(e) => field('type', e.target.value)}>
-                {SERVICE_TYPES.map((t) => (
-                  <option key={t} value={t}>{SERVICE_TYPE_LABELS[t]}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Check interval</label>
-              <select className={inputClass} style={inputStyle} value={form.checkIntervalSeconds} onChange={(e) => field('checkIntervalSeconds', Number(e.target.value))}>
-                {INTERVAL_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Health endpoint</label>
-              <input className={inputClass} style={inputStyle} placeholder="/health" value={form.healthEndpoint} onChange={(e) => field('healthEndpoint', e.target.value)} />
-            </div>
-            <div>
-              <label className="mb-1 block font-mono text-xs text-text-muted uppercase tracking-wider">Logs endpoint</label>
-              <input className={inputClass} style={inputStyle} placeholder="/logs" value={form.logsEndpoint} onChange={(e) => field('logsEndpoint', e.target.value)} />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-6 pt-1">
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-text-muted">
-              <input type="checkbox" className="accent-accent h-4 w-4" checked={form.isActive} onChange={(e) => field('isActive', e.target.checked)} />
-              Active monitoring
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-text-muted">
-              <input type="checkbox" className="accent-accent h-4 w-4" checked={form.alertsEnabled} onChange={(e) => field('alertsEnabled', e.target.checked)} />
-              Alerts enabled
-            </label>
-          </div>
-        </div>
-
-        <div className="mt-6 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-lg border py-2.5 text-sm text-text-muted transition-colors hover:border-accent hover:text-accent"
-            style={{ borderColor: 'rgba(255,255,255,0.12)' }}
-          >
-            Cancel
-          </button>
-          <button
-            disabled={busy || !form.name || !form.url}
-            onClick={() => onSave(form)}
-            className="flex-1 rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50"
-            style={{ backgroundColor: '#C8A951', color: '#0A0F1A' }}
-          >
-            {busy ? 'Saving…' : 'Save changes'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -1156,16 +1034,17 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
   });
 
   // Edit service
-  const handleEditSave = useCallback(async (form: EditFormData) => {
+  const handleEditSave = useCallback(async (form: ServiceFormData) => {
     setEditBusy(true);
     try {
-      const payload: Record<string, string | number | boolean> = {
+      const payload: Record<string, string | number | boolean | null> = {
         name: form.name,
         url: form.url,
         type: form.type,
         checkIntervalSeconds: form.checkIntervalSeconds,
         isActive: form.isActive,
         alertsEnabled: form.alertsEnabled,
+        categoryId: form.categoryId,
       };
       if (form.healthEndpoint) payload['healthEndpoint'] = form.healthEndpoint;
       if (form.logsEndpoint) payload['logsEndpoint'] = form.logsEndpoint;
@@ -1327,9 +1206,11 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Edit service modal */}
       {editModalOpen && service && (
-        <EditServiceModal
-          service={service}
-          onSave={handleEditSave}
+        <ServiceFormModal
+          title="Edit Service"
+          initial={service}
+          submitLabel="Save changes"
+          onSubmit={handleEditSave}
           onClose={() => setEditModalOpen(false)}
           busy={editBusy}
         />
