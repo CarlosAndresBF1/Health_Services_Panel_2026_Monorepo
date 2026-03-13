@@ -7,7 +7,6 @@ import {
   servicesApi,
   SERVICE_TYPE_LABELS,
   SERVICE_TYPE_COLORS,
-  INTERVAL_OPTIONS,
   type ServiceRecord,
   type ServiceWithSecret,
   type CreateServicePayload,
@@ -20,8 +19,6 @@ import {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type ServiceType = 'api_nestjs' | 'api_laravel' | 'web_nextjs';
-
-const SERVICE_TYPES: ServiceType[] = ['api_nestjs', 'api_laravel', 'web_nextjs'];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 

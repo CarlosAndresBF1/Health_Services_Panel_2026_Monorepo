@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboard-shell';
-import { servicesApi, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, INTERVAL_OPTIONS, type ServiceRecord } from '@/lib/services-api';
+import { servicesApi, SERVICE_TYPE_LABELS, SERVICE_TYPE_COLORS, type ServiceRecord } from '@/lib/services-api';
 import { healthApi, type HealthCheckRecord, type IncidentRecord, type PaginatedHealthChecks, type PaginatedIncidents, screenshotUrl, servicePreviewUrl, captureServiceScreenshot } from '@/lib/health-api';
 import { useMonitorSocket, type WsHealthUpdate, type WsIncidentNew, type WsIncidentResolved, type WsResourceWarning } from '@/lib/use-monitor-socket';
 import { domainApi, type DomainCheckRecord } from '@/lib/domain-api';
@@ -11,9 +11,6 @@ import { ServiceFormModal, type ServiceFormData } from '@/components/service-for
 import { LogViewer } from '@/components/log-viewer';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type ServiceType = 'api_nestjs' | 'api_laravel' | 'web_nextjs';
-const SERVICE_TYPES: ServiceType[] = ['api_nestjs', 'api_laravel', 'web_nextjs'];
 
 type Tab = 'overview' | 'health-checks' | 'incidents' | 'logs';
 
